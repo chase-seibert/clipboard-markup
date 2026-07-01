@@ -33,3 +33,4 @@
 - Added top-bar markup editor actions for reverting all markup and deleting the selected markup, plus clearer color and line-weight dropdowns.
 - Grouped markup editor controls into tool, shape, text, and color sections and persisted markup color, line weight, and text size preferences.
 - Expanded the sidebar search field to fill available width and made Return commit searches against All Clips.
+- Changed markup text editing so Return commits only the active text element, while Command-Return inserts a newline.

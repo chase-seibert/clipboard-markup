@@ -584,15 +584,19 @@ private struct MarkupElementOverlay: View {
     let canvasSize: CGSize
 
     @State private var dragBase: MarkupElement?
-    @FocusState private var isEditingText: Bool
+    @State private var isEditingText = false
 
     private var isSelected: Bool {
         selectedElementID == element.id
     }
 
+    private var isEditingSelectedText: Bool {
+        element.kind == .text && isSelected && isEditingText
+    }
+
     var body: some View {
         ZStack(alignment: .topLeading) {
-            if element.kind == .text && isSelected {
+            if isEditingSelectedText {
                 editableText
             } else {
                 MarkupElementDrawing(element: element, canvasSize: canvasSize, isSelected: isSelected)
@@ -601,6 +605,9 @@ private struct MarkupElementOverlay: View {
                 hitTarget
                     .onTapGesture {
                         selectedElementID = element.id
+                        if element.kind == .text {
+                            focusTextEditor()
+                        }
                     }
                     .gesture(moveGesture)
 
@@ -651,14 +658,17 @@ private struct MarkupElementOverlay: View {
     }
 
     private var editableText: some View {
-        TextField("Text", text: $element.text)
-            .textFieldStyle(.plain)
-            .font(.custom(element.fontName, size: CGFloat(element.fontSize)))
-            .foregroundStyle(Color(hex: element.colorHex))
-            .focused($isEditingText)
+        MarkupInlineTextEditor(
+            text: $element.text,
+            isFocused: $isEditingText,
+            fontName: element.fontName,
+            fontSize: CGFloat(element.fontSize),
+            colorHex: element.colorHex,
+            onCommit: commitTextEditing
+        )
             .padding(.horizontal, 5)
             .padding(.vertical, 3)
-            .frame(width: textEditorWidth, alignment: .leading)
+            .frame(width: textEditorSize.width, height: textEditorSize.height, alignment: .leading)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 4))
             .overlay {
                 RoundedRectangle(cornerRadius: 4)
@@ -672,11 +682,21 @@ private struct MarkupElementOverlay: View {
             .help("Edit text")
     }
 
-    private var textEditorWidth: CGFloat {
+    private var textEditorSize: CGSize {
         let approximateCharacterWidth = max(8, CGFloat(element.fontSize) * 0.58)
-        let textLength = max(4, element.text.count)
-        let preferredWidth = CGFloat(textLength) * approximateCharacterWidth + 18
-        return min(max(82, preferredWidth), max(82, canvasSize.width - 24))
+        let lineHeight = max(18, CGFloat(element.fontSize) * 1.18)
+        let lines = element.text.components(separatedBy: .newlines)
+        let longestLineLength = max(4, lines.map(\.count).max() ?? 0)
+        let visibleLineCount = max(1, lines.count)
+        let preferredWidth = CGFloat(longestLineLength) * approximateCharacterWidth + 18
+        let preferredHeight = CGFloat(visibleLineCount) * lineHeight + 8
+        let maximumWidth = max(82, canvasSize.width - 24)
+        let maximumHeight = max(lineHeight + 8, canvasSize.height - 24)
+
+        return CGSize(
+            width: min(max(82, preferredWidth), maximumWidth),
+            height: min(max(lineHeight + 8, preferredHeight), maximumHeight)
+        )
     }
 
     @ViewBuilder
@@ -717,6 +737,14 @@ private struct MarkupElementOverlay: View {
     private func focusTextEditor() {
         DispatchQueue.main.async {
             isEditingText = true
+        }
+    }
+
+    private func commitTextEditing() {
+        if element.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            selectedElementID = nil
+        } else {
+            isEditingText = false
         }
     }
 
@@ -838,6 +866,139 @@ private struct MarkupElementDrawing: View {
 private enum ResizeHandle {
     case start
     case end
+}
+
+private struct MarkupInlineTextEditor: NSViewRepresentable {
+    @Binding var text: String
+    @Binding var isFocused: Bool
+
+    let fontName: String
+    let fontSize: CGFloat
+    let colorHex: String
+    let onCommit: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.drawsBackground = false
+        scrollView.hasVerticalScroller = false
+        scrollView.hasHorizontalScroller = false
+        scrollView.borderType = .noBorder
+        scrollView.autohidesScrollers = true
+
+        let textView = CommitAwareTextView()
+        textView.delegate = context.coordinator
+        textView.onCommit = { text in
+            context.coordinator.commitTextEditing(text)
+        }
+        textView.isRichText = false
+        textView.importsGraphics = false
+        textView.allowsUndo = true
+        textView.drawsBackground = false
+        textView.backgroundColor = .clear
+        textView.focusRingType = .none
+        textView.textContainerInset = .zero
+        textView.isHorizontallyResizable = false
+        textView.isVerticallyResizable = true
+        textView.textContainer?.widthTracksTextView = true
+        textView.textContainer?.heightTracksTextView = false
+        textView.textContainer?.lineFragmentPadding = 0
+
+        scrollView.documentView = textView
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        context.coordinator.parent = self
+
+        guard let textView = scrollView.documentView as? CommitAwareTextView else {
+            return
+        }
+
+        textView.onCommit = { text in
+            context.coordinator.commitTextEditing(text)
+        }
+
+        let font = NSFont(name: fontName, size: fontSize)
+            ?? .systemFont(ofSize: fontSize, weight: .bold)
+        let color = NSColor(hex: colorHex) ?? .systemRed
+        textView.font = font
+        textView.textColor = color
+        textView.insertionPointColor = color
+        textView.typingAttributes = [
+            .font: font,
+            .foregroundColor: color
+        ]
+
+        if textView.string != text {
+            textView.string = text
+        }
+
+        if isFocused {
+            DispatchQueue.main.async {
+                textView.window?.makeFirstResponder(textView)
+            }
+        } else if textView.window?.firstResponder === textView {
+            DispatchQueue.main.async {
+                textView.window?.makeFirstResponder(nil)
+            }
+        }
+    }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        var parent: MarkupInlineTextEditor
+
+        init(parent: MarkupInlineTextEditor) {
+            self.parent = parent
+        }
+
+        func textDidBeginEditing(_ notification: Notification) {
+            parent.isFocused = true
+        }
+
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else {
+                return
+            }
+
+            parent.text = textView.string
+        }
+
+        func textDidEndEditing(_ notification: Notification) {
+            parent.isFocused = false
+        }
+
+        func commitTextEditing(_ text: String) {
+            parent.text = text
+            parent.isFocused = false
+            parent.onCommit()
+        }
+    }
+}
+
+private final class CommitAwareTextView: NSTextView {
+    var onCommit: ((String) -> Void)?
+
+    override func keyDown(with event: NSEvent) {
+        guard Self.isReturnKey(event) else {
+            super.keyDown(with: event)
+            return
+        }
+
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if flags.contains(.command) {
+            insertNewline(nil)
+        } else {
+            onCommit?(string)
+        }
+    }
+
+    private static func isReturnKey(_ event: NSEvent) -> Bool {
+        event.keyCode == 36 || event.keyCode == 76
+    }
 }
 
 private func aspectFitRect(imageSize: CGSize, containerSize: CGSize) -> CGRect {

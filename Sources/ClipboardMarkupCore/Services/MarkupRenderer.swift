@@ -66,7 +66,10 @@ public enum MarkupRenderer {
             .foregroundColor: color
         ]
         let attributed = NSAttributedString(string: element.text, attributes: attributes)
-        let textSize = attributed.size()
+        let textSize = attributed.boundingRect(
+            with: CGSize(width: size.width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading]
+        ).integral.size
         let center = imagePoint(element.start, size: size)
         let rect = CGRect(
             x: center.x - textSize.width / 2,
@@ -74,7 +77,11 @@ public enum MarkupRenderer {
             width: textSize.width,
             height: textSize.height
         )
-        attributed.draw(in: rect)
+        attributed.draw(
+            with: rect,
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            context: nil
+        )
     }
 
     private static func imagePoint(_ point: NormalizedPoint, size: CGSize) -> CGPoint {
