@@ -9,7 +9,7 @@ public struct SettingsView: View {
     @ObservedObject private var libraryPreferences: LibraryPreferences
     @ObservedObject private var storageLocationPreferences: StorageLocationPreferences
     @ObservedObject private var analyticsPreferences: AnalyticsPreferences
-    @ObservedObject private var analyticsRecorder: AnalyticsRecorder
+    private let analyticsRecorder: AnalyticsRecorder
     @State private var isRecordingShortcut = false
     @State private var selectedTab = SettingsTab.appearance
 
@@ -34,15 +34,11 @@ public struct SettingsView: View {
     public var body: some View {
         TabView(selection: $selectedTab) {
             appearanceForm
-                .tabItem {
-                    Label("Appearance", systemImage: "textformat.size")
-                }
+                .tabItem { SettingsTabLabel(tab: .appearance) }
                 .tag(SettingsTab.appearance)
 
             shortcutForm
-                .tabItem {
-                    Label("Shortcut", systemImage: "keyboard")
-                }
+                .tabItem { SettingsTabLabel(tab: .shortcut) }
                 .tag(SettingsTab.shortcut)
 
             StorageLocationSettingsView(
@@ -50,9 +46,7 @@ public struct SettingsView: View {
                 storageLocationPreferences: storageLocationPreferences,
                 analyticsRecorder: analyticsRecorder
             )
-                .tabItem {
-                    Label("Storage Location", systemImage: "folder")
-                }
+                .tabItem { SettingsTabLabel(tab: .storageLocation) }
                 .tag(SettingsTab.storageLocation)
 
             OtherSettingsView(
@@ -62,16 +56,12 @@ public struct SettingsView: View {
                 analyticsPreferences: analyticsPreferences,
                 analyticsRecorder: analyticsRecorder
             )
-                .tabItem {
-                    Label("Other", systemImage: "ellipsis.circle")
-                }
+                .tabItem { SettingsTabLabel(tab: .other) }
                 .tag(SettingsTab.other)
 
             if DeveloperMode.isEnabled {
                 DebugSettingsView(analyticsRecorder: analyticsRecorder)
-                    .tabItem {
-                        Label("Debug", systemImage: "ladybug")
-                    }
+                    .tabItem { SettingsTabLabel(tab: .debug) }
                     .tag(SettingsTab.debug)
             }
         }
@@ -256,6 +246,69 @@ private enum SettingsTab: Hashable {
         case .debug:
             .debug
         }
+    }
+
+    var title: String {
+        switch self {
+        case .appearance:
+            "Appearance"
+        case .shortcut:
+            "Shortcut"
+        case .storageLocation:
+            "Storage Location"
+        case .other:
+            "Other"
+        case .debug:
+            "Debug"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .appearance:
+            "textformat.size"
+        case .shortcut:
+            "keyboard"
+        case .storageLocation:
+            "folder"
+        case .other:
+            "ellipsis.circle"
+        case .debug:
+            "ladybug"
+        }
+    }
+
+    var tabItemWidth: CGFloat {
+        switch self {
+        case .appearance:
+            76
+        case .shortcut:
+            66
+        case .storageLocation:
+            104
+        case .other:
+            54
+        case .debug:
+            54
+        }
+    }
+}
+
+private struct SettingsTabLabel: View {
+    let tab: SettingsTab
+
+    var body: some View {
+        Label {
+            Text(tab.title)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(width: tab.tabItemWidth)
+        } icon: {
+            Image(systemName: tab.systemImage)
+                .font(.system(size: 18, weight: .regular))
+                .frame(width: 24, height: 18)
+        }
+        .frame(width: tab.tabItemWidth, height: 42)
     }
 }
 
