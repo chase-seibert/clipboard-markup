@@ -27,10 +27,11 @@
 - As a macOS user, I want to clear all captured clipboard history and media from Settings with confirmation so that I can reset the app without changing preferences or the current system clipboard.
 - As a macOS user, I want the local data directory to include guidance for LLM coding agents so that I can ask agents to inspect clipboard history and associated media.
 - As a macOS user, I want Settings to show the data directory, open it in Finder, and copy a short prompt pointing agents at the generated `AGENTS.md` so that I can easily provide clipboard history context.
+- As a macOS user, I want to move the clipboard-history data directory to iCloud Drive, Dropbox, Google Drive, or a custom folder so that cloud providers can sync the manifest, media, and agent guide across devices.
 
 ## Non-Goals For The First Version
 
-- iCloud synchronization.
+- First-party iCloud or CloudKit synchronization.
 - Mobile companion app.
 - Browser extension capture.
 - Shape recognition or complex image editing.

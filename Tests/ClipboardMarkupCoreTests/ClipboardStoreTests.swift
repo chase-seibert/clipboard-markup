@@ -113,6 +113,47 @@ final class ClipboardStoreTests: XCTestCase {
         XCTAssertEqual(pasteboard.string(forType: .string), "current system clipboard")
     }
 
+    func testMigrateStorageCopiesDataAndSwitchesStoreToDestination() throws {
+        let sourceRootURL = temporaryRootURL()
+        let destinationRootURL = temporaryRootURL()
+        defer {
+            try? FileManager.default.removeItem(at: sourceRootURL)
+            try? FileManager.default.removeItem(at: destinationRootURL)
+        }
+
+        let sourceStorage = ClipboardStorage(rootURL: sourceRootURL)
+        let itemID = UUID()
+        let richTextFilename = try sourceStorage.saveRichText(Data("rich".utf8), itemID: itemID)
+        let item = ClipboardItem(
+            id: itemID,
+            kind: .text,
+            plainText: "Migrated clip",
+            richTextFilename: richTextFilename,
+            fingerprint: "text:migrated"
+        )
+        try sourceStorage.saveItems([item])
+
+        let store = ClipboardStore(
+            storage: sourceStorage,
+            monitor: PasteboardMonitor(pasteboard: testPasteboard())
+        )
+
+        XCTAssertTrue(store.migrateStorage(to: destinationRootURL))
+
+        let destinationStorage = ClipboardStorage(rootURL: destinationRootURL)
+        XCTAssertEqual(store.dataDirectoryURL.path, destinationRootURL.standardizedFileURL.path)
+        XCTAssertEqual(store.items.count, 1)
+        XCTAssertEqual(store.items.first?.id, item.id)
+        XCTAssertEqual(store.items.first?.plainText, item.plainText)
+
+        let loadedItems = try destinationStorage.loadItems()
+        XCTAssertEqual(loadedItems.count, 1)
+        XCTAssertEqual(loadedItems.first?.id, item.id)
+        XCTAssertEqual(loadedItems.first?.plainText, item.plainText)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: destinationStorage.url(filename: richTextFilename).path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: destinationStorage.agentGuideURL.path))
+    }
+
     private func temporaryRootURL() -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("ClipboardMarkupTests-\(UUID().uuidString)", isDirectory: true)

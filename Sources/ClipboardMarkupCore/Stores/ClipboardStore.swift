@@ -19,19 +19,37 @@ public final class ClipboardStore: ObservableObject {
     @Published public private(set) var items: [ClipboardItem] = []
     @Published public private(set) var lastError: String?
 
-    private let storage: ClipboardStorage
+    private var storage: ClipboardStorage
     private let monitor: PasteboardMonitor
     private var transcriptionTasks: [ClipboardItem.ID: Task<Void, Never>] = [:]
     private var purgeTimer: Timer?
 
     public convenience init() {
-        self.init(storage: ClipboardStorage(), monitor: PasteboardMonitor())
+        let storageLocationPreferences = StorageLocationPreferences()
+        self.init(
+            storage: ClipboardStorage(rootURL: storageLocationPreferences.rootURL),
+            monitor: PasteboardMonitor()
+        )
     }
 
     init(storage: ClipboardStorage, monitor: PasteboardMonitor) {
         self.storage = storage
         self.monitor = monitor
 
+        reloadItemsFromStorage()
+
+        monitor.onCapture = { [weak self] capture in
+            self?.record(capture)
+        }
+
+        transcribePendingImages()
+    }
+
+    public var dataDirectoryURL: URL {
+        storage.rootURL
+    }
+
+    private func reloadItemsFromStorage() {
         do {
             let loadedItems = try storage.loadItems().sorted { $0.createdAt > $1.createdAt }
             let retainedItems = try storage.purgeExpiredDeletedItems(from: loadedItems)
@@ -40,16 +58,11 @@ public final class ClipboardStore: ObservableObject {
             if retainedItems.count != loadedItems.count {
                 try storage.saveItems(retainedItems)
             }
+            self.lastError = nil
         } catch {
             self.lastError = error.localizedDescription
             self.items = []
         }
-
-        monitor.onCapture = { [weak self] capture in
-            self?.record(capture)
-        }
-
-        transcribePendingImages()
     }
 
     public var savedItems: [ClipboardItem] {
@@ -75,6 +88,32 @@ public final class ClipboardStore: ObservableObject {
             lastError = nil
             monitor.acceptCurrentChangeCount()
             return true
+        } catch {
+            lastError = error.localizedDescription
+            return false
+        }
+    }
+
+    @discardableResult
+    public func migrateStorage(to rootURL: URL) -> Bool {
+        let destinationRootURL = rootURL.standardizedFileURL
+        guard !StorageLocationPreferences.sameLocation(storage.rootURL, destinationRootURL) else {
+            return true
+        }
+
+        do {
+            try storage.saveItems(items)
+            try storage.copyData(to: destinationRootURL)
+
+            for task in transcriptionTasks.values {
+                task.cancel()
+            }
+            transcriptionTasks.removeAll()
+
+            storage = ClipboardStorage(rootURL: destinationRootURL)
+            reloadItemsFromStorage()
+            transcribePendingImages()
+            return lastError == nil
         } catch {
             lastError = error.localizedDescription
             return false

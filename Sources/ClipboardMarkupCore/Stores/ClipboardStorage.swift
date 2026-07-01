@@ -7,10 +7,14 @@ struct ClipboardStorage {
     let manifestURL: URL
     let agentGuideURL: URL
 
-    init(fileManager: FileManager = .default) {
+    static func defaultRootURL(fileManager: FileManager = .default) -> URL {
         let applicationSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-        self.rootURL = applicationSupport.appendingPathComponent("ClipboardMarkup", isDirectory: true)
+        return applicationSupport.appendingPathComponent("ClipboardMarkup", isDirectory: true)
+    }
+
+    init(fileManager: FileManager = .default) {
+        self.rootURL = Self.defaultRootURL(fileManager: fileManager)
         self.mediaURL = rootURL.appendingPathComponent("Media", isDirectory: true)
         self.manifestURL = rootURL.appendingPathComponent("entries.json")
         self.agentGuideURL = rootURL.appendingPathComponent("AGENTS.md")
@@ -120,6 +124,30 @@ struct ClipboardStorage {
         try saveItems([])
     }
 
+    func copyData(to destinationRootURL: URL) throws {
+        try ensureDirectories()
+
+        let destination = ClipboardStorage(rootURL: destinationRootURL.standardizedFileURL)
+        guard destination.rootURL.standardizedFileURL.path != rootURL.standardizedFileURL.path else {
+            return
+        }
+
+        try FileManager.default.createDirectory(at: destination.rootURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destination.mediaURL, withIntermediateDirectories: true)
+
+        if FileManager.default.fileExists(atPath: manifestURL.path) {
+            try copyReplacingItem(at: manifestURL, to: destination.manifestURL)
+        } else {
+            try destination.saveItems([])
+        }
+
+        if FileManager.default.fileExists(atPath: mediaURL.path) {
+            try copyDirectoryContents(from: mediaURL, to: destination.mediaURL)
+        }
+
+        try destination.writeAgentGuideIfNeeded()
+    }
+
     func saveRichText(_ data: Data, itemID: UUID) throws -> String {
         try ensureDirectories()
         let filename = "\(itemID.uuidString)-rich.rtf"
@@ -176,6 +204,28 @@ struct ClipboardStorage {
         }
 
         try contents.write(to: agentGuideURL, atomically: true, encoding: .utf8)
+    }
+
+    private func copyDirectoryContents(from sourceURL: URL, to destinationURL: URL) throws {
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+        let contents = try FileManager.default.contentsOfDirectory(
+            at: sourceURL,
+            includingPropertiesForKeys: nil
+        )
+
+        for sourceItemURL in contents {
+            try copyReplacingItem(
+                at: sourceItemURL,
+                to: destinationURL.appendingPathComponent(sourceItemURL.lastPathComponent)
+            )
+        }
+    }
+
+    private func copyReplacingItem(at sourceURL: URL, to destinationURL: URL) throws {
+        if FileManager.default.fileExists(atPath: destinationURL.path) {
+            try FileManager.default.removeItem(at: destinationURL)
+        }
+        try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
     }
 }
 

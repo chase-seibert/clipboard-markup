@@ -58,7 +58,7 @@ The main window uses a standard autosave frame name and remains a single-window 
 
 ## Settings
 
-Settings is organized into tabs for Appearance, Shortcut, and Data. Appearance includes app text-size and thumbnail-size controls. Shortcut includes a recorder for the global app shortcut, suggested presets, reset buttons, and registration status. Data explains the local manifest/media layout, shows the data directory with an Open in Finder button, provides a copyable prompt snippet that points agents at the generated `AGENTS.md`, and includes a confirmed destructive control for clearing captured clipboard history and media. The default global shortcut is `Control` + `Option` + `C`.
+Settings is organized into tabs for Appearance, Shortcut, Storage Location, and Other. Appearance includes app text-size and thumbnail-size controls. Shortcut includes a recorder for the global app shortcut, suggested presets, reset buttons, and registration status. Storage Location explains the local manifest/media layout, offers storage-location presets for the default local folder, iCloud Drive, Dropbox, and Google Drive plus a custom folder picker, and gives every location row an Open in Finder action. Other provides a copyable prompt snippet that points agents at the generated `AGENTS.md` and includes a confirmed destructive control for clearing captured clipboard history and media. The default global shortcut is `Control` + `Option` + `C`.
 
 ## Text Scaling
 

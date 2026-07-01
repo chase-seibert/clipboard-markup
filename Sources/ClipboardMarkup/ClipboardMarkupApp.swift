@@ -14,6 +14,7 @@ struct ClipboardMarkupApp: App {
     @StateObject private var shortcutPreferences = ShortcutPreferences()
     @StateObject private var appearancePreferences = AppearancePreferences()
     @StateObject private var libraryPreferences = LibraryPreferences()
+    @StateObject private var storageLocationPreferences = StorageLocationPreferences()
 
     var body: some Scene {
         WindowGroup("Clipboard Markup", id: "main") {
@@ -149,7 +150,8 @@ struct ClipboardMarkupApp: App {
                 shortcutPreferences: shortcutPreferences,
                 appearancePreferences: appearancePreferences,
                 store: store,
-                libraryPreferences: libraryPreferences
+                libraryPreferences: libraryPreferences,
+                storageLocationPreferences: storageLocationPreferences
             )
                 .environment(\.appFontScale, appearancePreferences.fontScale)
         }

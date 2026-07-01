@@ -140,6 +140,48 @@ final class ClipboardStorageTests: XCTestCase {
         XCTAssertTrue(guide.contains(storage.agentGuideURL.path))
     }
 
+    func testCopyDataMigratesManifestMediaAndRegeneratesAgentGuidePaths() throws {
+        let sourceRootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ClipboardMarkupTests-source-\(UUID().uuidString)", isDirectory: true)
+        let destinationRootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ClipboardMarkupTests-destination-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: sourceRootURL)
+            try? FileManager.default.removeItem(at: destinationRootURL)
+        }
+
+        let sourceStorage = ClipboardStorage(rootURL: sourceRootURL)
+        let itemID = UUID()
+        let richTextFilename = try sourceStorage.saveRichText(Data("rich".utf8), itemID: itemID)
+        let originalFilename = try sourceStorage.saveImage(testImage(), itemID: itemID, variant: "original")
+        let item = ClipboardItem(
+            id: itemID,
+            kind: .image,
+            richTextFilename: richTextFilename,
+            originalImageFilename: originalFilename,
+            fingerprint: "image:migrated"
+        )
+        try sourceStorage.saveItems([item])
+
+        try sourceStorage.copyData(to: destinationRootURL)
+
+        let destinationStorage = ClipboardStorage(rootURL: destinationRootURL)
+        let loadedItems = try destinationStorage.loadItems()
+        XCTAssertEqual(loadedItems.count, 1)
+        XCTAssertEqual(loadedItems.first?.id, item.id)
+        XCTAssertEqual(loadedItems.first?.kind, item.kind)
+        XCTAssertEqual(loadedItems.first?.richTextFilename, richTextFilename)
+        XCTAssertEqual(loadedItems.first?.originalImageFilename, originalFilename)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: destinationStorage.url(filename: richTextFilename).path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: destinationStorage.url(filename: originalFilename).path))
+
+        let guide = try String(contentsOf: destinationStorage.agentGuideURL)
+        XCTAssertTrue(guide.contains(destinationStorage.rootURL.path))
+        XCTAssertTrue(guide.contains(destinationStorage.manifestURL.path))
+        XCTAssertTrue(guide.contains(destinationStorage.mediaURL.path))
+        XCTAssertFalse(guide.contains(sourceStorage.rootURL.path))
+    }
+
     private func testImage() -> NSImage {
         let image = NSImage(size: CGSize(width: 12, height: 12))
         image.lockFocus()

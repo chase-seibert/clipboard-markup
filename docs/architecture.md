@@ -16,7 +16,7 @@ Clipboard Markup is a SwiftPM-packaged SwiftUI macOS app. The main scene is a `W
 
 ## Persistence
 
-Local data lives in:
+By default, local data lives in:
 
 `~/Library/Application Support/ClipboardMarkup`
 
@@ -26,11 +26,11 @@ The storage layout is:
 - `Media`: PNG image assets and RTF payloads.
 - `AGENTS.md`: generated guide for LLM-based coding agents that explains how to read `entries.json` and resolve media filenames.
 
-This keeps metadata and binary assets relocatable. A future iCloud implementation can move the same manifest/media shape into an iCloud container or CloudKit-backed location.
+This keeps metadata and binary assets relocatable. Settings can move the storage root to another folder and migrate the existing manifest, media, and generated agent guide there. Built-in presets target iCloud Drive, Dropbox, and Google Drive folders, and a custom folder picker supports any user-chosen storage location.
 
 Deletion is soft by default: entries keep their manifest row and media files with a `deletedAt` timestamp so they can be restored from Deleted Items. On load and during periodic monitoring, storage purges deleted entries older than 30 days and removes their associated media files.
 
-The Settings window exposes a Data tab with the absolute data-directory path, a Finder button, and a copyable prompt snippet. The snippet points agents at the generated `AGENTS.md`, which contains the detailed manifest/media loading instructions. The same tab includes a confirmed destructive clear action that removes `entries.json` history contents and media files while preserving the current system clipboard and user preferences.
+The Settings window exposes a Storage Location tab with the absolute data-directory path, per-location Finder buttons, and storage-location migration controls. An Other tab contains the copyable prompt snippet that points agents at the generated `AGENTS.md`, plus a confirmed destructive clear action that removes `entries.json` history contents and media files while preserving the current system clipboard and user preferences.
 
 ## Platform Bridges
 
