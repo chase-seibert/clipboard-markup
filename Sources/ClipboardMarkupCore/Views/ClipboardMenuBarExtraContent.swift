@@ -76,6 +76,8 @@ public struct ClipboardMenuBarExtraContent: View {
                         dismiss()
                     } onMarkup: {
                         openMarkup(for: item)
+                    } onQuickLook: {
+                        quickLook(item)
                     } onToggleFavorite: {
                         store.toggleSaved(itemID: item.id)
                     }
@@ -92,6 +94,15 @@ public struct ClipboardMenuBarExtraContent: View {
         selectInMainWindow(item)
         analyticsRecorder.record(.clipAction(.markupOpened))
         commandRelay.markupSelectedClip()
+        dismiss()
+    }
+
+    private func quickLook(_ item: ClipboardItem) {
+        guard item.kind == .image, !item.isDeleted else {
+            return
+        }
+
+        store.quickLook(itemID: item.id, variant: .preferred)
         dismiss()
     }
 
@@ -174,6 +185,7 @@ private struct RecentClipPanelRow: View {
     let image: NSImage?
     let onCopy: () -> Void
     let onMarkup: () -> Void
+    let onQuickLook: () -> Void
     let onToggleFavorite: () -> Void
 
     @State private var isHovering = false
@@ -214,6 +226,13 @@ private struct RecentClipPanelRow: View {
                     foregroundStyle: Color.blue,
                     accessibilityLabel: "Markup \(item.title)",
                     action: onMarkup
+                )
+
+                RowIconButton(
+                    systemName: "eye",
+                    foregroundStyle: Color.secondary,
+                    accessibilityLabel: "Quick Look \(item.title)",
+                    action: onQuickLook
                 )
             }
 
