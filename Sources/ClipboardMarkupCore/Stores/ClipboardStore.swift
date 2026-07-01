@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import Foundation
+import UniformTypeIdentifiers
 
 @MainActor
 public final class ClipboardStore: ObservableObject {
@@ -87,56 +88,100 @@ public final class ClipboardStore: ObservableObject {
         return items.first { $0.id == id }
     }
 
-    public func toggleSaved(itemID: ClipboardItem.ID) {
+    public func toggleSaved(itemID: ClipboardItem.ID, undoManager: UndoManager? = nil) {
         guard let index = items.firstIndex(where: { $0.id == itemID }),
               !items[index].isDeleted
         else {
             return
         }
-        items[index].isSaved.toggle()
-        items[index].updatedAt = Date()
-        persist()
+
+        setSaved(itemID: itemID, isSaved: !items[index].isSaved, undoManager: undoManager)
     }
 
-    public func rename(itemID: ClipboardItem.ID, title: String) {
+    private func setSaved(itemID: ClipboardItem.ID, isSaved: Bool, undoManager: UndoManager?) {
+        guard let index = items.firstIndex(where: { $0.id == itemID }),
+              !items[index].isDeleted,
+              items[index].isSaved != isSaved
+        else {
+            return
+        }
+
+        let previousValue = items[index].isSaved
+        items[index].isSaved = isSaved
+        items[index].updatedAt = Date()
+        persist()
+
+        undoManager?.registerUndo(withTarget: self) { store in
+            store.setSaved(itemID: itemID, isSaved: previousValue, undoManager: undoManager)
+        }
+        undoManager?.setActionName(isSaved ? "Favorite Clip" : "Unfavorite Clip")
+    }
+
+    public func rename(itemID: ClipboardItem.ID, title: String, undoManager: UndoManager? = nil) {
         guard let index = items.firstIndex(where: { $0.id == itemID }) else {
             return
         }
 
-        items[index].customTitle = ClipboardItem.normalizedTitle(title)
+        let previousTitle = items[index].customTitle
+        let normalizedTitle = ClipboardItem.normalizedTitle(title)
+        guard previousTitle != normalizedTitle else {
+            return
+        }
+
+        items[index].customTitle = normalizedTitle
         items[index].updatedAt = Date()
         persist()
+
+        undoManager?.registerUndo(withTarget: self) { store in
+            store.rename(itemID: itemID, title: previousTitle ?? "", undoManager: undoManager)
+        }
+        undoManager?.setActionName("Rename Clip")
     }
 
-    public func delete(itemID: ClipboardItem.ID) {
+    public func delete(itemID: ClipboardItem.ID, undoManager: UndoManager? = nil) {
         guard let index = items.firstIndex(where: { $0.id == itemID }),
               !items[index].isDeleted
         else {
             return
         }
 
-        let now = Date()
-        items[index].deletedAt = now
-        items[index].updatedAt = now
-        transcriptionTasks[itemID]?.cancel()
-        transcriptionTasks[itemID] = nil
-        persist()
+        setDeletedAt(itemID: itemID, deletedAt: Date(), undoManager: undoManager)
     }
 
-    public func restore(itemID: ClipboardItem.ID) {
+    public func restore(itemID: ClipboardItem.ID, undoManager: UndoManager? = nil) {
         guard let index = items.firstIndex(where: { $0.id == itemID }),
               items[index].isDeleted
         else {
             return
         }
 
-        items[index].deletedAt = nil
+        setDeletedAt(itemID: itemID, deletedAt: nil, undoManager: undoManager)
+    }
+
+    private func setDeletedAt(itemID: ClipboardItem.ID, deletedAt: Date?, undoManager: UndoManager?) {
+        guard let index = items.firstIndex(where: { $0.id == itemID }),
+              items[index].deletedAt != deletedAt
+        else {
+            return
+        }
+
+        let previousDeletedAt = items[index].deletedAt
+        items[index].deletedAt = deletedAt
         items[index].updatedAt = Date()
+
+        if deletedAt == nil, items[index].kind == .image {
+            scheduleTranscription(for: items[index])
+        } else if deletedAt != nil {
+            transcriptionTasks[itemID]?.cancel()
+            transcriptionTasks[itemID] = nil
+        }
+
         persist()
 
-        if items[index].kind == .image {
-            scheduleTranscription(for: items[index])
+        undoManager?.registerUndo(withTarget: self) { store in
+            store.setDeletedAt(itemID: itemID, deletedAt: previousDeletedAt, undoManager: undoManager)
         }
+        undoManager?.setActionName(deletedAt == nil ? "Restore Clip" : "Delete Clip")
     }
 
     public func copyPreferred(itemID: ClipboardItem.ID) {
@@ -234,7 +279,7 @@ public final class ClipboardStore: ObservableObject {
         return storage.url(filename: filename)
     }
 
-    public func updateMarkups(itemID: ClipboardItem.ID, elements: [MarkupElement]) {
+    public func updateMarkups(itemID: ClipboardItem.ID, elements: [MarkupElement], undoManager: UndoManager? = nil) {
         guard let index = items.firstIndex(where: { $0.id == itemID }),
               !items[index].isDeleted,
               items[index].kind == .image,
@@ -244,6 +289,11 @@ public final class ClipboardStore: ObservableObject {
         }
 
         do {
+            let previousElements = items[index].markups
+            guard previousElements != elements else {
+                return
+            }
+
             items[index].markups = elements
             if elements.isEmpty {
                 items[index].markedImageFilename = nil
@@ -253,8 +303,125 @@ public final class ClipboardStore: ObservableObject {
             }
             items[index].updatedAt = Date()
             persist()
+
+            undoManager?.registerUndo(withTarget: self) { store in
+                store.updateMarkups(itemID: itemID, elements: previousElements, undoManager: undoManager)
+            }
+            undoManager?.setActionName("Update Markup")
         } catch {
             lastError = error.localizedDescription
+        }
+    }
+
+    public func availableExportFormats(itemID: ClipboardItem.ID) -> [ClipboardTransferFormat] {
+        guard let item = item(id: itemID) else {
+            return []
+        }
+
+        return ClipboardTransferPlanner.availableFormats(for: item)
+    }
+
+    public func defaultExportPlan(itemID: ClipboardItem.ID) -> ClipboardExportPlan? {
+        guard let item = item(id: itemID),
+              let format = ClipboardTransferPlanner.defaultFormat(for: item)
+        else {
+            return nil
+        }
+
+        return ClipboardTransferPlanner.exportPlan(for: item, format: format)
+    }
+
+    public func writeExport(itemID: ClipboardItem.ID, format: ClipboardTransferFormat, to url: URL) throws {
+        guard let item = item(id: itemID), !item.isDeleted else {
+            throw ClipboardTransferError.itemUnavailable
+        }
+
+        switch format {
+        case .plainText:
+            guard let plainText = item.plainText else {
+                throw ClipboardTransferError.itemUnavailable
+            }
+            try plainText.write(to: url, atomically: true, encoding: .utf8)
+        case .richText:
+            guard let filename = item.richTextFilename,
+                  let data = storage.richTextData(filename: filename)
+            else {
+                throw ClipboardTransferError.itemUnavailable
+            }
+            try data.write(to: url, options: .atomic)
+        case .preferredImage:
+            try writeImageExport(item: item, variant: .preferred, to: url)
+        case .originalImage:
+            try writeImageExport(item: item, variant: .original, to: url)
+        }
+    }
+
+    public func sharingItems(itemID: ClipboardItem.ID) -> [Any] {
+        guard let item = item(id: itemID), !item.isDeleted else {
+            return []
+        }
+
+        switch item.kind {
+        case .text:
+            return item.plainText.map { [$0] } ?? []
+        case .image:
+            return imageURL(for: item, variant: .preferred).map { [$0] } ?? []
+        }
+    }
+
+    public func itemProvider(itemID: ClipboardItem.ID) -> NSItemProvider? {
+        guard let item = item(id: itemID), !item.isDeleted else {
+            return nil
+        }
+
+        guard let format = ClipboardTransferPlanner.defaultFormat(for: item) else {
+            return nil
+        }
+
+        let plan = ClipboardTransferPlanner.exportPlan(for: item, format: format)
+        let provider = NSItemProvider()
+        provider.suggestedName = URL(fileURLWithPath: plan.suggestedFilename).deletingPathExtension().lastPathComponent
+
+        switch item.kind {
+        case .text:
+            switch format {
+            case .richText:
+                guard let filename = item.richTextFilename,
+                      let data = storage.richTextData(filename: filename)
+                else {
+                    return nil
+                }
+                provider.registerDataRepresentation(
+                    forTypeIdentifier: UTType.rtf.identifier,
+                    visibility: .all
+                ) { completion in
+                    completion(data, nil)
+                    return nil
+                }
+            case .plainText:
+                guard let plainText = item.plainText,
+                      let data = plainText.data(using: .utf8)
+                else {
+                    return nil
+                }
+                provider.registerDataRepresentation(
+                    forTypeIdentifier: UTType.plainText.identifier,
+                    visibility: .all
+                ) { completion in
+                    completion(data, nil)
+                    return nil
+                }
+            case .preferredImage, .originalImage:
+                return nil
+            }
+            return provider
+        case .image:
+            guard let url = imageURL(for: item, variant: .preferred) else {
+                return nil
+            }
+            let imageProvider = NSItemProvider(contentsOf: url)
+            imageProvider?.suggestedName = provider.suggestedName
+            return imageProvider
         }
     }
 
@@ -413,6 +580,27 @@ public final class ClipboardStore: ObservableObject {
             try storage.saveItems(items)
         } catch {
             lastError = error.localizedDescription
+        }
+    }
+
+    private func writeImageExport(item: ClipboardItem, variant: ImageVariant, to url: URL) throws {
+        guard let image = image(for: item, variant: variant),
+              let pngData = image.pngData
+        else {
+            throw ClipboardTransferError.itemUnavailable
+        }
+
+        try pngData.write(to: url, options: .atomic)
+    }
+}
+
+public enum ClipboardTransferError: LocalizedError {
+    case itemUnavailable
+
+    public var errorDescription: String? {
+        switch self {
+        case .itemUnavailable:
+            "The selected clip is no longer available."
         }
     }
 }

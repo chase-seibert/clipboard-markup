@@ -2,11 +2,14 @@ import AppKit
 import SwiftUI
 
 struct MarkupEditorView: View {
+    @Environment(\.undoManager) private var undoManager
+
     let originalImage: NSImage
     let initialElements: [MarkupElement]
     let onCancel: () -> Void
     let onSave: ([MarkupElement]) -> Void
 
+    @StateObject private var undoController = MarkupEditorUndoController()
     @State private var elements: [MarkupElement]
     @State private var selectedElementID: MarkupElement.ID?
     @State private var tool = MarkupTool.arrow
@@ -52,7 +55,8 @@ struct MarkupEditorView: View {
                 tool: tool,
                 colorHex: colorHex,
                 lineWidth: lineWidth,
-                fontSize: fontSize
+                fontSize: fontSize,
+                onElementChange: registerElementChange
             )
             .padding(12)
 
@@ -95,6 +99,7 @@ struct MarkupEditorView: View {
         .onChange(of: fontSize) { _, _ in
             applyControlsToSelection()
         }
+        .onAppear(perform: configureUndoController)
     }
 
     private var selectedElement: MarkupElement? {
@@ -124,6 +129,7 @@ struct MarkupEditorView: View {
             return
         }
 
+        let previousElements = elements
         elements[index].colorHex = colorHex
         switch elements[index].kind {
         case .arrow, .rectangle:
@@ -131,19 +137,24 @@ struct MarkupEditorView: View {
         case .text:
             elements[index].fontSize = fontSize
         }
+        registerUndo(previousElements: previousElements, actionName: "Change Markup Style")
     }
 
     private func deleteSelectedElement() {
         guard let selectedElementID else {
             return
         }
+        let previousElements = elements
         elements.removeAll { $0.id == selectedElementID }
         self.selectedElementID = nil
+        registerUndo(previousElements: previousElements, actionName: "Delete Markup")
     }
 
     private func revertMarkup() {
+        let previousElements = elements
         elements.removeAll()
         selectedElementID = nil
+        registerUndo(previousElements: previousElements, actionName: "Revert Markup")
     }
 
     private func pruneEmptyTextElement(id: MarkupElement.ID?) {
@@ -154,6 +165,57 @@ struct MarkupEditorView: View {
         elements.removeAll { element in
             element.id == id && element.kind == .text && !element.isRenderable
         }
+    }
+
+    private func registerElementChange(previousElements: [MarkupElement], actionName: String) {
+        registerUndo(previousElements: previousElements, actionName: actionName)
+    }
+
+    private func registerUndo(previousElements: [MarkupElement], actionName: String) {
+        guard previousElements != elements else {
+            return
+        }
+
+        configureUndoController()
+        undoController.registerUndo(
+            targetElements: previousElements,
+            undoManager: undoManager,
+            actionName: actionName
+        )
+    }
+
+    private func configureUndoController() {
+        undoController.currentElements = { elements }
+        undoController.applyElements = { newElements in
+            elements = newElements
+            if let selectedElementID,
+               !newElements.contains(where: { $0.id == selectedElementID }) {
+                self.selectedElementID = nil
+            }
+        }
+    }
+}
+
+@MainActor
+private final class MarkupEditorUndoController: ObservableObject {
+    var currentElements: (() -> [MarkupElement])?
+    var applyElements: (([MarkupElement]) -> Void)?
+
+    func registerUndo(targetElements: [MarkupElement], undoManager: UndoManager?, actionName: String) {
+        guard let undoManager else {
+            return
+        }
+
+        undoManager.registerUndo(withTarget: self) { controller in
+            let redoElements = controller.currentElements?() ?? []
+            controller.applyElements?(targetElements)
+            controller.registerUndo(
+                targetElements: redoElements,
+                undoManager: undoManager,
+                actionName: actionName
+            )
+        }
+        undoManager.setActionName(actionName)
     }
 }
 
@@ -232,6 +294,8 @@ private struct MarkupToolbar: View {
             .controlSize(.regular)
             .disabled(!hasMarkupElements)
             .help("Remove all markup and restore the original image")
+            .accessibilityLabel("Revert markup")
+            .accessibilityHint("Removes all markup elements and restores the original image in the editor.")
 
             Button(role: .destructive) {
                 onDeleteSelectedMarkup()
@@ -243,6 +307,7 @@ private struct MarkupToolbar: View {
             .tint(.red)
             .disabled(!canDeleteSelectedMarkup)
             .help("Delete selected markup")
+            .accessibilityLabel("Delete selected markup")
         }
     }
 }
@@ -271,6 +336,7 @@ private struct MarkupToolButton: View {
                 .stroke(isSelected ? Color.primary.opacity(0.28) : Color.secondary.opacity(0.18), lineWidth: 1)
         }
         .help(tool.title)
+        .accessibilityLabel(tool.title)
     }
 }
 
@@ -322,6 +388,8 @@ private struct ColorPickerMenu: View {
         }
         .menuStyle(.borderlessButton)
         .help("Color")
+        .accessibilityLabel("Markup color")
+        .accessibilityValue(colorName(for: selection))
     }
 
     private func colorName(for hex: String) -> String {
@@ -408,6 +476,8 @@ private struct LineWeightMenu: View {
         .disabled(isDisabled)
         .opacity(isDisabled ? 0.45 : 1)
         .help("Line weight")
+        .accessibilityLabel("Line weight")
+        .accessibilityValue("\(roundedSelection) points")
     }
 
     private var roundedSelection: Int {
@@ -466,6 +536,8 @@ private struct ToolbarValueStepper: View {
         }
         .opacity(isDisabled ? 0.45 : 1)
         .allowsHitTesting(!isDisabled)
+        .accessibilityLabel(title)
+        .accessibilityValue("\(Int(round(value)))")
     }
 }
 
@@ -477,6 +549,7 @@ private struct MarkupCanvas: View {
     let colorHex: String
     let lineWidth: Double
     let fontSize: Double
+    let onElementChange: ([MarkupElement], String) -> Void
 
     @State private var draftElement: MarkupElement?
 
@@ -499,7 +572,8 @@ private struct MarkupCanvas: View {
                         MarkupElementOverlay(
                             element: $element,
                             selectedElementID: $selectedElementID,
-                            canvasSize: imageRect.size
+                            canvasSize: imageRect.size,
+                            onElementChange: registerElementChange
                         )
                     }
 
@@ -552,6 +626,7 @@ private struct MarkupCanvas: View {
                     selectedElementID = nil
                 case .text:
                     let location = normalizedPoint(from: value.location, canvasSize: canvasSize)
+                    let previousElements = elements
                     let element = MarkupElement(
                         kind: .text,
                         start: location,
@@ -563,6 +638,7 @@ private struct MarkupCanvas: View {
                     )
                     elements.append(element)
                     selectedElementID = element.id
+                    onElementChange(previousElements, "Add Markup")
                 case .arrow, .rectangle:
                     guard let draftElement,
                           distance(from: draftElement.start, to: draftElement.end, in: canvasSize) > 8
@@ -570,11 +646,23 @@ private struct MarkupCanvas: View {
                         self.draftElement = nil
                         return
                     }
+                    let previousElements = elements
                     elements.append(draftElement)
                     selectedElementID = draftElement.id
                     self.draftElement = nil
+                    onElementChange(previousElements, "Add Markup")
                 }
             }
+    }
+
+    private func registerElementChange(previousElement: MarkupElement, actionName: String) {
+        var previousElements = elements
+        guard let index = previousElements.firstIndex(where: { $0.id == previousElement.id }) else {
+            return
+        }
+
+        previousElements[index] = previousElement
+        onElementChange(previousElements, actionName)
     }
 }
 
@@ -582,9 +670,11 @@ private struct MarkupElementOverlay: View {
     @Binding var element: MarkupElement
     @Binding var selectedElementID: MarkupElement.ID?
     let canvasSize: CGSize
+    let onElementChange: (MarkupElement, String) -> Void
 
     @State private var dragBase: MarkupElement?
     @State private var isEditingText = false
+    @State private var textEditBase: MarkupElement?
 
     private var isSelected: Bool {
         selectedElementID == element.id
@@ -625,6 +715,7 @@ private struct MarkupElementOverlay: View {
             if selected && element.kind == .text {
                 focusTextEditor()
             } else {
+                commitPendingTextEdit(actionName: "Edit Text")
                 isEditingText = false
             }
         }
@@ -730,22 +821,41 @@ private struct MarkupElementOverlay: View {
                 element = updated
             }
             .onEnded { _ in
+                if let dragBase, dragBase != element {
+                    onElementChange(dragBase, "Move Markup")
+                }
                 dragBase = nil
             }
     }
 
     private func focusTextEditor() {
+        if textEditBase == nil {
+            textEditBase = element
+        }
+
         DispatchQueue.main.async {
             isEditingText = true
         }
     }
 
     private func commitTextEditing() {
+        commitPendingTextEdit(actionName: "Edit Text")
         if element.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             selectedElementID = nil
         } else {
             isEditingText = false
         }
+    }
+
+    private func commitPendingTextEdit(actionName: String) {
+        guard let textEditBase else {
+            return
+        }
+
+        if textEditBase != element {
+            onElementChange(textEditBase, actionName)
+        }
+        self.textEditBase = nil
     }
 
     private func handle(at point: NormalizedPoint, handle: ResizeHandle) -> some View {
@@ -783,6 +893,9 @@ private struct MarkupElementOverlay: View {
                 element = updated
             }
             .onEnded { _ in
+                if let dragBase, dragBase != element {
+                    onElementChange(dragBase, "Resize Markup")
+                }
                 dragBase = nil
             }
     }

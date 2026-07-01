@@ -2,7 +2,10 @@ import AppKit
 import SwiftUI
 
 struct ClipboardDetailView: View {
+    @Environment(\.undoManager) private var undoManager
+
     @ObservedObject var store: ClipboardStore
+    @ObservedObject var commandRelay: AppCommandRelay
     let item: ClipboardItem
     let onDelete: () -> Void
     let onRestore: () -> Void
@@ -11,7 +14,13 @@ struct ClipboardDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                DetailHeader(store: store, item: item, onDelete: onDelete, onRestore: onRestore)
+                DetailHeader(
+                    store: store,
+                    item: item,
+                    renameRequestID: commandRelay.renameRequestID,
+                    onDelete: onDelete,
+                    onRestore: onRestore
+                )
 
                 if item.isDeleted {
                     DeletedItemNotice(item: item, onRestore: onRestore)
@@ -42,7 +51,7 @@ struct ClipboardDetailView: View {
                         isEditingMarkup = false
                     },
                     onSave: { elements in
-                        store.updateMarkups(itemID: item.id, elements: elements)
+                        store.updateMarkups(itemID: item.id, elements: elements, undoManager: undoManager)
                         isEditingMarkup = false
                     }
                 )
@@ -52,12 +61,19 @@ struct ClipboardDetailView: View {
                     .frame(minWidth: 420, minHeight: 280)
             }
         }
+        .onChange(of: commandRelay.markupRequestID) { _, _ in
+            guard item.kind == .image, !item.isDeleted else {
+                return
+            }
+            isEditingMarkup = true
+        }
     }
 }
 
 private struct DetailHeader: View {
     @ObservedObject var store: ClipboardStore
     let item: ClipboardItem
+    let renameRequestID: Int
     let onDelete: () -> Void
     let onRestore: () -> Void
     @State private var titleFocusRequest = 0
@@ -113,6 +129,9 @@ private struct DetailHeader: View {
                 }
             }
         }
+        .onChange(of: renameRequestID) { _, _ in
+            titleFocusRequest += 1
+        }
     }
 
     private var headerIconSystemName: String {
@@ -150,6 +169,8 @@ private struct RenameTitleButton: View {
 }
 
 private struct EditableTitleField: View {
+    @Environment(\.undoManager) private var undoManager
+
     @ObservedObject var store: ClipboardStore
     let item: ClipboardItem
     let focusRequest: Int
@@ -187,18 +208,20 @@ private struct EditableTitleField: View {
     }
 
     private func commitRename() {
-        store.rename(itemID: item.id, title: draftTitle)
+        store.rename(itemID: item.id, title: draftTitle, undoManager: undoManager)
         draftTitle = store.item(id: item.id)?.title ?? item.title
     }
 }
 
 private struct HeaderFavoriteButton: View {
+    @Environment(\.undoManager) private var undoManager
+
     @ObservedObject var store: ClipboardStore
     let item: ClipboardItem
 
     var body: some View {
         Button {
-            store.toggleSaved(itemID: item.id)
+            store.toggleSaved(itemID: item.id, undoManager: undoManager)
         } label: {
             Image(systemName: item.isSaved ? "star.fill" : "star")
                 .symbolRenderingMode(.hierarchical)
@@ -213,8 +236,8 @@ private struct HeaderFavoriteButton: View {
             RoundedRectangle(cornerRadius: 7)
                 .stroke(item.isSaved ? Color.yellow.opacity(0.34) : Color.secondary.opacity(0.14), lineWidth: 1)
         }
-        .keyboardShortcut("d", modifiers: [.command])
         .help(item.isSaved ? "Remove from Favorites (Command-D)" : "Add to Favorites (Command-D)")
+        .accessibilityLabel(item.isSaved ? "Remove from Favorites" : "Add to Favorites")
     }
 }
 
@@ -237,6 +260,7 @@ private struct HeaderDeleteButton: View {
                 .stroke(Color.red.opacity(0.18), lineWidth: 1)
         }
         .help("Delete clip")
+        .accessibilityLabel("Delete clip")
     }
 }
 
@@ -259,6 +283,7 @@ private struct HeaderRestoreButton: View {
                 .stroke(Color.blue.opacity(0.22), lineWidth: 1)
         }
         .help("Restore clip")
+        .accessibilityLabel("Restore clip")
     }
 }
 
@@ -327,13 +352,11 @@ private struct DetailActionBar: View {
             ) {
                 store.copyPreferred(itemID: item.id)
             }
-            .keyboardShortcut("c", modifiers: [.command])
 
             if item.hasRichText {
                 ActionButton(title: "Plain Text", systemImage: "text.alignleft", shortcut: "⌥⌘C") {
                     store.copyText(itemID: item.id, variant: .plain)
                 }
-                .keyboardShortcut("c", modifiers: [.command, .option])
             }
         }
     }
@@ -348,22 +371,18 @@ private struct DetailActionBar: View {
             ) {
                 store.copyImage(itemID: item.id, variant: .preferred)
             }
-            .keyboardShortcut("c", modifiers: [.command])
 
             ActionButton(title: "Markup", systemImage: "square.and.pencil", shortcut: "⌘E") {
                 isEditingMarkup = true
             }
-            .keyboardShortcut("e", modifiers: [.command])
 
             ActionButton(title: "Preview", systemImage: "macwindow", shortcut: "⇧⌘O") {
                 store.openInPreview(itemID: item.id, variant: .preferred)
             }
-            .keyboardShortcut("o", modifiers: [.command, .shift])
 
             ActionButton(title: "Quick Look", systemImage: "eye", shortcut: "Space") {
                 store.quickLook(itemID: item.id, variant: .preferred)
             }
-            .keyboardShortcut(.space, modifiers: [])
         }
     }
 }
@@ -405,6 +424,12 @@ private struct ActionButton: View {
         .foregroundStyle(isPrimary ? Color.white : Color.primary)
         .padding(.horizontal, 2)
         .frame(minHeight: 27)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var accessibilityLabel: String {
+        "\(title), shortcut \(shortcut)"
     }
 }
 
@@ -458,6 +483,9 @@ private struct TextDetailView: View {
                     RoundedRectangle(cornerRadius: 8)
                         .stroke(Color.secondary.opacity(0.14), lineWidth: 1)
                 }
+                .onDrag {
+                    store.itemProvider(itemID: item.id) ?? NSItemProvider()
+                }
         }
     }
 }
@@ -471,6 +499,9 @@ private struct ImageDetailView: View {
             if let image = store.image(for: item, variant: .preferred) {
                 ScreenshotPreviewSurface(image: image)
                     .frame(maxWidth: .infinity, minHeight: 500, maxHeight: 620)
+                    .onDrag {
+                        store.itemProvider(itemID: item.id) ?? NSItemProvider()
+                    }
             } else {
                 ContentUnavailableView("Image Missing", systemImage: "exclamationmark.triangle")
             }

@@ -14,6 +14,12 @@ When a new clipboard item is captured, the app selects it and shows its detail v
 
 Image entries start with the dimension-based fallback title, then use local text transcription as the automatic title when OCR completes. The detail header shows a compact pencil emoji button to focus the title field for manual renaming; a manual rename always overrides automatic naming.
 
+## Mac Commands
+
+The app exposes native menu commands for selected clip actions. `Clip` menu items validate against the focused selection, with disabled states for no selection, deleted clips, and type-specific actions. `File > Export Selected Clip...` exports text as `.txt`, rich text as `.rtf`, and images as `.png`; image exports can use either the preferred marked-up image or the original source. The same selected clip payloads are available for drag and Share where macOS supports them.
+
+Rename, favorite, delete, restore, and saved markup updates participate in Undo/Redo. The markup editor also supports local undo before save for adding, moving, resizing, deleting, reverting, and restyling markup elements. Clear Clipboard History remains permanent and is not undoable.
+
 ## Text Detail
 
 Text entries show the captured plain text preview and expose:
@@ -39,13 +45,17 @@ Image entries show the marked-up image by default when available. The preview si
 
 The editor is optimized for simple screenshot annotation:
 
-- Tool picker: arrow, rectangle, text, select.
-- Color swatches.
-- Line width slider.
-- Text size slider.
-- Font picker for text.
+- Tool picker: select, arrow, rectangle, and text.
+- Line weight dropdown for arrow and rectangle strokes.
+- Text size stepper for selected text elements.
+- Color dropdown with named swatches.
+- Revert Markup and Delete Selected Markup actions.
 
-Arrows and rectangles are created by dragging. Text is created by typing the label and clicking the image. Selected objects can be moved; arrows and rectangles expose endpoint or corner handles for adjustment.
+Arrows and rectangles are created by dragging. Text is created by selecting the text tool, clicking the image, and typing directly on the image. Selected objects can be moved; arrows and rectangles expose endpoint or corner handles for adjustment. Pressing Return in an active text markup commits that text field, and `Command-Return` inserts a new line.
+
+## Window, Help, And Accessibility
+
+The main window uses a standard autosave frame name and remains a single-window app. The Help menu opens bundled local help covering shortcuts, filters, markup, storage, and privacy. Sidebar search and filter animations respect Reduce Motion. Icon-only controls in the sidebar, detail header, thumbnail lens, preview actions, and markup toolbar include accessibility labels or hints.
 
 ## Settings
 

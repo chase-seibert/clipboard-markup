@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Clipboard Markup Help</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font: -apple-system-body;
+      margin: 32px auto;
+      max-width: 760px;
+      line-height: 1.48;
+      color: CanvasText;
+      background: Canvas;
+    }
+    h1 { font: -apple-system-title1; margin-bottom: 8px; }
+    h2 { font: -apple-system-title3; margin-top: 28px; }
+    kbd {
+      border: 1px solid color-mix(in srgb, CanvasText 22%, transparent);
+      border-radius: 4px;
+      padding: 1px 5px;
+      background: color-mix(in srgb, CanvasText 8%, transparent);
+      font: -apple-system-caption1;
+    }
+    li { margin: 7px 0; }
+  </style>
+</head>
+<body>
+  <h1>Clipboard Markup Help</h1>
+  <p>Clipboard Markup keeps a local history of copied text, rich text, images, and screenshots so you can return to recent clips quickly.</p>
+
+  <h2>Shortcuts</h2>
+  <ul>
+    <li><kbd>Command-C</kbd> copies the selected clip's preferred representation.</li>
+    <li><kbd>Option-Command-C</kbd> copies plain text for rich text clips or the original image for image clips.</li>
+    <li><kbd>Command-E</kbd> opens markup for image clips.</li>
+    <li><kbd>Shift-Command-O</kbd> opens the selected image in Preview.</li>
+    <li><kbd>Space</kbd> opens Quick Look.</li>
+    <li><kbd>Command-D</kbd> toggles Favorite.</li>
+    <li><kbd>Command-1</kbd> through <kbd>Command-5</kbd> switch filters.</li>
+    <li><kbd>Command-F</kbd> opens search.</li>
+  </ul>
+
+  <h2>Filters And Search</h2>
+  <p>Use the filter menu in the sidebar to show all clips, images, text, favorites, or deleted items. Search checks names, copied text, and image OCR summaries.</p>
+
+  <h2>Markup</h2>
+  <p>Image markup supports arrows, rectangles, and text. Select existing markup to move, resize, restyle, or delete it before saving. Saving bakes the marked-up image while keeping the original image available.</p>
+
+  <h2>Data Storage</h2>
+  <p>Clipboard history is stored in Application Support as an <code>entries.json</code> manifest plus media files. The Data tab in Settings includes the exact local path and an agent prompt snippet.</p>
+
+  <h2>Privacy</h2>
+  <p>Clipboard Markup stores data locally. It skips common password-manager clipboard payloads where possible and keeps your current system clipboard separate from the app history clear action.</p>
+</body>
+</html>

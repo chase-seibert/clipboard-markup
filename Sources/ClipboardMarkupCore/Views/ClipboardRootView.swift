@@ -2,6 +2,8 @@ import AppKit
 import SwiftUI
 
 public struct ClipboardRootView: View {
+    @Environment(\.undoManager) private var undoManager
+
     @ObservedObject private var store: ClipboardStore
     @ObservedObject private var commandRelay: AppCommandRelay
     @ObservedObject private var libraryPreferences: LibraryPreferences
@@ -35,7 +37,7 @@ public struct ClipboardRootView: View {
             .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 700)
         } detail: {
             if let item = store.item(id: libraryPreferences.selectedItemID) {
-                ClipboardDetailView(store: store, item: item) {
+                ClipboardDetailView(store: store, commandRelay: commandRelay, item: item) {
                     deleteItem(item.id)
                 } onRestore: {
                     restoreItem(item.id)
@@ -47,6 +49,7 @@ public struct ClipboardRootView: View {
         }
         .background(WindowStyler().frame(width: 0, height: 0))
         .modifier(WindowCommandInstaller(commandRelay: commandRelay))
+        .focusedSceneValue(\.clipboardCommandContext, commandContext)
         .onAppear {
             selectFallbackItem()
             handleSearchRequestIfNeeded()
@@ -80,6 +83,25 @@ public struct ClipboardRootView: View {
         }
 
         return matchingItems
+    }
+
+    private var selectedItem: ClipboardItem? {
+        store.item(id: libraryPreferences.selectedItemID)
+    }
+
+    private var commandContext: ClipboardCommandContext {
+        ClipboardCommandContext(
+            item: selectedItem,
+            copy: copySelectedItem,
+            copyAlternate: copyAlternateSelectedItem,
+            markup: commandRelay.markupSelectedClip,
+            preview: previewSelectedItem,
+            quickLook: quickLookSelectedItem,
+            rename: commandRelay.renameSelectedClip,
+            toggleFavorite: toggleFavoriteSelectedItem,
+            delete: deleteSelectedItem,
+            restore: restoreSelectedItem
+        )
     }
 
     private var libraryFilterBinding: Binding<LibraryFilter> {
@@ -130,13 +152,21 @@ public struct ClipboardRootView: View {
         deleteItem(selectedID)
     }
 
+    private func restoreSelectedItem() {
+        guard let selectedID = libraryPreferences.selectedItemID else {
+            return
+        }
+
+        restoreItem(selectedID)
+    }
+
     private func deleteItem(_ itemID: ClipboardItem.ID) {
-        store.delete(itemID: itemID)
+        store.delete(itemID: itemID, undoManager: undoManager)
         selectFallbackItem()
     }
 
     private func restoreItem(_ itemID: ClipboardItem.ID) {
-        store.restore(itemID: itemID)
+        store.restore(itemID: itemID, undoManager: undoManager)
         selectFallbackItem()
     }
 
@@ -147,9 +177,56 @@ public struct ClipboardRootView: View {
 
         searchFocusRequestID += 1
     }
+
+    private func copySelectedItem() {
+        guard let selectedID = libraryPreferences.selectedItemID else {
+            return
+        }
+
+        store.copyPreferred(itemID: selectedID)
+    }
+
+    private func copyAlternateSelectedItem() {
+        guard let selectedItem else {
+            return
+        }
+
+        switch selectedItem.kind {
+        case .text:
+            store.copyText(itemID: selectedItem.id, variant: .plain)
+        case .image:
+            store.copyImage(itemID: selectedItem.id, variant: .original)
+        }
+    }
+
+    private func previewSelectedItem() {
+        guard let selectedItem, selectedItem.kind == .image else {
+            return
+        }
+
+        store.openInPreview(itemID: selectedItem.id, variant: .preferred)
+    }
+
+    private func quickLookSelectedItem() {
+        guard let selectedItem, selectedItem.kind == .image else {
+            return
+        }
+
+        store.quickLook(itemID: selectedItem.id, variant: .preferred)
+    }
+
+    private func toggleFavoriteSelectedItem() {
+        guard let selectedID = libraryPreferences.selectedItemID else {
+            return
+        }
+
+        store.toggleSaved(itemID: selectedID, undoManager: undoManager)
+    }
 }
 
 private struct SidebarView: View {
+    @Environment(\.undoManager) private var undoManager
+
     @ObservedObject var store: ClipboardStore
     @Binding var libraryFilter: LibraryFilter
     @Binding var selectedID: ClipboardItem.ID?
@@ -190,6 +267,9 @@ private struct SidebarView: View {
                         ClipboardRow(store: store, item: item)
                             .tag(item.id)
                             .listRowInsets(EdgeInsets(top: 4, leading: 10, bottom: 4, trailing: 10))
+                            .onDrag {
+                                store.itemProvider(itemID: item.id) ?? NSItemProvider()
+                            }
                             .contextMenu {
                                 if item.isDeleted {
                                     Button {
@@ -205,7 +285,7 @@ private struct SidebarView: View {
                                     }
 
                                     Button {
-                                        store.toggleSaved(itemID: item.id)
+                                        store.toggleSaved(itemID: item.id, undoManager: undoManager)
                                     } label: {
                                         Label(item.isSaved ? "Unfavorite" : "Favorite", systemImage: item.isSaved ? "star.slash" : "star")
                                     }
@@ -269,6 +349,8 @@ private struct SidebarView: View {
 }
 
 private struct FilterMenu: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @Binding var selection: LibraryFilter
     let isCompact: Bool
 
@@ -316,10 +398,12 @@ private struct FilterMenu: View {
                     .stroke(Color.secondary.opacity(0.14), lineWidth: 1)
             }
             .fixedSize(horizontal: !isCompact, vertical: false)
-            .animation(.easeInOut(duration: 0.16), value: isCompact)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.16), value: isCompact)
         }
         .menuStyle(.borderlessButton)
         .help("Filter clips: \(activeFilter.title)")
+        .accessibilityLabel("Filter clips")
+        .accessibilityValue(activeFilter.title)
     }
 
     private var activeFilter: LibraryFilter {
@@ -349,6 +433,8 @@ private struct FilterShortcutBadge: View {
 }
 
 private struct ExpandingSearchField: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @Binding var text: String
     @Binding var isPresented: Bool
     let focusRequestID: Int
@@ -374,6 +460,7 @@ private struct ExpandingSearchField: View {
             .buttonStyle(.plain)
             .foregroundStyle(showsField ? Color.primary : Color.secondary)
             .help("Search clips (Command-F)")
+            .accessibilityLabel("Search clips")
 
             if showsField {
                 TextField("Search", text: $draftText)
@@ -398,6 +485,7 @@ private struct ExpandingSearchField: View {
                     }
                     .buttonStyle(.plain)
                     .help("Clear search")
+                    .accessibilityLabel("Clear search")
                 }
             }
         }
@@ -410,7 +498,7 @@ private struct ExpandingSearchField: View {
                 .stroke(Color.secondary.opacity(0.14), lineWidth: 1)
         }
         .clipped()
-        .animation(.easeInOut(duration: 0.16), value: showsField)
+        .animation(searchAnimation, value: showsField)
         .frame(maxWidth: .infinity, alignment: .trailing)
         .onAppear {
             draftText = text
@@ -437,14 +525,14 @@ private struct ExpandingSearchField: View {
                 return
             }
 
-            withAnimation(.easeInOut(duration: 0.16)) {
+            withAnimation(searchAnimation) {
                 isExpanded = false
             }
         }
     }
 
     private func expandAndFocus() {
-        withAnimation(.easeInOut(duration: 0.16)) {
+        withAnimation(searchAnimation) {
             isExpanded = true
             isPresented = true
         }
@@ -452,6 +540,10 @@ private struct ExpandingSearchField: View {
         DispatchQueue.main.async {
             isFocused = true
         }
+    }
+
+    private var searchAnimation: Animation? {
+        reduceMotion ? nil : .easeInOut(duration: 0.16)
     }
 }
 
@@ -627,6 +719,8 @@ private struct ImageHybridThumbnail: View {
                 if shouldShowMagnifier(for: size) {
                     OneToOneMagnifierLens(image: image, diameter: lensDiameter)
                         .position(x: size.width / 2, y: size.height / 2)
+                        .accessibilityLabel("Magnified thumbnail detail")
+                        .accessibilityHint("Shows the center of the screenshot at original size.")
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 5))
