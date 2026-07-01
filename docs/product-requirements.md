@@ -17,6 +17,7 @@
 - As a macOS user, I want to scale the app's text size with keyboard shortcuts and Settings so that the UI stays comfortable to read.
 - As a macOS user, I want to resize image thumbnails in the history list so that screenshots are easier to recognize.
 - As a macOS user, I want text clips to show a readable preview tile in the history list so that copied snippets are recognizable without opening the detail view.
+- As a macOS user, I want content copied from password managers such as 1Password to be skipped so secrets do not enter clipboard history.
 - As a macOS user, I want screenshot thumbnails to show readable text without losing visual context so that similar screenshots are easier to distinguish.
 - As a macOS user, I want image entries to get useful names from visible text in the image while still letting me rename them myself.
 - As a macOS user, I want to search clip names, copied text, and image OCR text so that older clips are quick to find.

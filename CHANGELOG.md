@@ -11,6 +11,7 @@
 - Added persistent app font scaling through Settings and Command-plus, Command-minus, and Command-zero shortcuts.
 - Added configurable image thumbnail sizing, renameable clip titles, and local image text transcription for automatic image names.
 - Added stacked text snippet preview tiles in the clipboard history list.
+- Skipped password-manager and other sensitive pasteboard contents when macOS marker/source types identify them.
 - Added a detail title pencil emoji button for manual renaming.
 - Added sidebar search across clip names, copied text contents, and image OCR transcripts.
 - Added `Command-F` to open and focus the sidebar search field.

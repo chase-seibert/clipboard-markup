@@ -53,6 +53,38 @@ final class PasteboardReaderTests: XCTestCase {
         XCTAssertEqual(capturedImage.size.height, 24)
     }
 
+    func testSkipsConcealedPasteboardContent() {
+        let pasteboard = makePasteboard()
+        pasteboard.setString("super-secret-password", forType: .string)
+        pasteboard.setString("", forType: NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType"))
+
+        XCTAssertNil(PasteboardReader.capture(from: pasteboard))
+    }
+
+    func testSkipsTransientPasteboardContent() {
+        let pasteboard = makePasteboard()
+        pasteboard.setString("one-time-code", forType: .string)
+        pasteboard.setString("", forType: NSPasteboard.PasteboardType("org.nspasteboard.TransientType"))
+
+        XCTAssertNil(PasteboardReader.capture(from: pasteboard))
+    }
+
+    func testSkipsOnePasswordPasteboardMarker() {
+        let pasteboard = makePasteboard()
+        pasteboard.setString("super-secret-password", forType: .string)
+        pasteboard.setString("", forType: NSPasteboard.PasteboardType("com.agilebits.onepassword"))
+
+        XCTAssertNil(PasteboardReader.capture(from: pasteboard))
+    }
+
+    func testSkipsKnownPasswordManagerSource() {
+        let pasteboard = makePasteboard()
+        pasteboard.setString("super-secret-password", forType: .string)
+        pasteboard.setString("com.1password.1password", forType: NSPasteboard.PasteboardType("org.nspasteboard.source"))
+
+        XCTAssertNil(PasteboardReader.capture(from: pasteboard))
+    }
+
     private func makePasteboard() -> NSPasteboard {
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("ClipboardMarkupTests.\(UUID().uuidString)"))
         pasteboard.clearContents()
