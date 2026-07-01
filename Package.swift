@@ -16,7 +16,10 @@ let package = Package(
             dependencies: ["ClipboardMarkupCore"]
         ),
         .target(
-            name: "ClipboardMarkupCore"
+            name: "ClipboardMarkupCore",
+            resources: [
+                .process("Resources")
+            ]
         ),
         .testTarget(
             name: "ClipboardMarkupCoreTests",

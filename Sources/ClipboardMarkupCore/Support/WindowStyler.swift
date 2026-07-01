@@ -24,5 +24,6 @@ struct WindowStyler: NSViewRepresentable {
         window.tabbingMode = .disallowed
         window.titleVisibility = .visible
         window.toolbarStyle = .automatic
+        window.setFrameAutosaveName("ClipboardMarkupMainWindow")
     }
 }

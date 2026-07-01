@@ -4,6 +4,8 @@ import Combine
 @MainActor
 public final class AppCommandRelay: ObservableObject {
     @Published public private(set) var searchRequestID = 0
+    @Published public private(set) var renameRequestID = 0
+    @Published public private(set) var markupRequestID = 0
 
     public var showWindowHandler: (() -> Void)?
     private var handledSearchRequestID = 0
@@ -17,6 +19,16 @@ public final class AppCommandRelay: ObservableObject {
     public func showSearch() {
         showMainWindow()
         searchRequestID += 1
+    }
+
+    public func renameSelectedClip() {
+        showMainWindow()
+        renameRequestID += 1
+    }
+
+    public func markupSelectedClip() {
+        showMainWindow()
+        markupRequestID += 1
     }
 
     public func consumeSearchRequestIfNeeded() -> Bool {
