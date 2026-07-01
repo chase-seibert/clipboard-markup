@@ -163,9 +163,11 @@ private struct SidebarView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                Spacer(minLength: 0)
-
-                ExpandingSearchField(text: $searchText, focusRequestID: searchFocusRequestID)
+                ExpandingSearchField(
+                    text: $searchText,
+                    focusRequestID: searchFocusRequestID,
+                    onSubmit: submitSearch
+                )
 
                 FilterMenu(selection: $libraryFilter)
                     .frame(width: 36)
@@ -252,6 +254,16 @@ private struct SidebarView: View {
         }
         return activeFilter.systemImage
     }
+
+    private func submitSearch(_ query: String) {
+        let normalizedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if !normalizedQuery.isEmpty {
+            libraryFilter = .allClips
+        }
+
+        searchText = normalizedQuery
+    }
 }
 
 private struct FilterMenu: View {
@@ -299,12 +311,14 @@ private struct FilterMenu: View {
 private struct ExpandingSearchField: View {
     @Binding var text: String
     let focusRequestID: Int
+    let onSubmit: (String) -> Void
 
     @FocusState private var isFocused: Bool
     @State private var isExpanded = false
+    @State private var draftText = ""
 
     private var showsField: Bool {
-        isExpanded || isFocused || !text.isEmpty
+        isExpanded || isFocused || !draftText.isEmpty || !text.isEmpty
     }
 
     var body: some View {
@@ -321,14 +335,19 @@ private struct ExpandingSearchField: View {
             .help("Search clips (Command-F)")
 
             if showsField {
-                TextField("Search", text: $text)
+                TextField("Search", text: $draftText)
                     .focused($isFocused)
                     .textFieldStyle(.plain)
                     .appFont(size: 13)
+                    .frame(maxWidth: .infinity)
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    .onSubmit {
+                        onSubmit(draftText)
+                    }
 
-                if !text.isEmpty {
+                if !draftText.isEmpty || !text.isEmpty {
                     Button {
+                        draftText = ""
                         text = ""
                         isFocused = true
                     } label: {
@@ -342,7 +361,8 @@ private struct ExpandingSearchField: View {
             }
         }
         .padding(.horizontal, showsField ? 9 : 5)
-        .frame(width: showsField ? 190 : 32, height: 28, alignment: .leading)
+        .frame(width: showsField ? nil : 32, height: 28, alignment: .leading)
+        .frame(maxWidth: showsField ? .infinity : 32, alignment: .leading)
         .background(Color(nsColor: .controlBackgroundColor).opacity(0.82), in: RoundedRectangle(cornerRadius: 7))
         .overlay {
             RoundedRectangle(cornerRadius: 7)
@@ -350,11 +370,25 @@ private struct ExpandingSearchField: View {
         }
         .clipped()
         .animation(.easeInOut(duration: 0.16), value: showsField)
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .onAppear {
+            draftText = text
+        }
+        .onChange(of: text) { _, newValue in
+            guard newValue != draftText else {
+                return
+            }
+
+            draftText = newValue
+        }
         .onChange(of: focusRequestID) { _, _ in
             expandAndFocus()
         }
         .onChange(of: isFocused) { _, focused in
-            guard !focused, text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            guard !focused,
+                  text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else {
                 return
             }
 
