@@ -34,3 +34,5 @@
 - Grouped markup editor controls into tool, shape, text, and color sections and persisted markup color, line weight, and text size preferences.
 - Expanded the sidebar search field to fill available width and made Return commit searches against All Clips.
 - Changed markup text editing so Return commits only the active text element, while Command-Return inserts a newline.
+- Added Command-1 through Command-5 shortcuts for All Clips, Images, Text, Favorites, and Deleted Items filters, with detail-style shortcut badges in the filter dropdown.
+- Restored the current filter text in the sidebar filter control when search is closed, while keeping the compact icon-only filter when search is open.

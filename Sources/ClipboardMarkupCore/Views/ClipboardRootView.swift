@@ -160,17 +160,19 @@ private struct SidebarView: View {
     let onDeleteItem: (ClipboardItem.ID) -> Void
     let onRestoreItem: (ClipboardItem.ID) -> Void
 
+    @State private var isSearchFieldPresented = false
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 ExpandingSearchField(
                     text: $searchText,
+                    isPresented: $isSearchFieldPresented,
                     focusRequestID: searchFocusRequestID,
                     onSubmit: submitSearch
                 )
 
-                FilterMenu(selection: $libraryFilter)
-                    .frame(width: 36)
+                FilterMenu(selection: $libraryFilter, isCompact: isSearchFieldPresented)
             }
             .padding(.horizontal, 14)
             .padding(.top, 11)
@@ -268,6 +270,7 @@ private struct SidebarView: View {
 
 private struct FilterMenu: View {
     @Binding var selection: LibraryFilter
+    let isCompact: Bool
 
     var body: some View {
         Menu {
@@ -275,7 +278,17 @@ private struct FilterMenu: View {
                 Button {
                     selection = filter
                 } label: {
-                    Label(filter.title, systemImage: menuIcon(for: filter))
+                    Label {
+                        HStack(spacing: 16) {
+                            Text(filter.title)
+
+                            Spacer(minLength: 24)
+
+                            FilterShortcutBadge(filter.keyboardShortcutLabel)
+                        }
+                    } icon: {
+                        Image(systemName: menuIcon(for: filter))
+                    }
                 }
             }
         } label: {
@@ -283,17 +296,27 @@ private struct FilterMenu: View {
                 Image(systemName: "line.3.horizontal.decrease")
                     .appFont(size: 12, weight: .medium)
 
+                if !isCompact {
+                    Text(activeFilter.title)
+                        .appFont(size: 12, weight: .medium)
+                        .lineLimit(1)
+
+                    FilterShortcutBadge(activeFilter.keyboardShortcutLabel)
+                }
+
                 Image(systemName: "chevron.down")
                     .appFont(size: 8, weight: .semibold)
             }
             .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity)
-            .frame(height: 28)
+            .padding(.horizontal, isCompact ? 0 : 9)
+            .frame(width: isCompact ? 36 : nil, height: 28)
             .background(Color(nsColor: .controlBackgroundColor).opacity(0.82), in: RoundedRectangle(cornerRadius: 7))
             .overlay {
                 RoundedRectangle(cornerRadius: 7)
                     .stroke(Color.secondary.opacity(0.14), lineWidth: 1)
             }
+            .fixedSize(horizontal: !isCompact, vertical: false)
+            .animation(.easeInOut(duration: 0.16), value: isCompact)
         }
         .menuStyle(.borderlessButton)
         .help("Filter clips: \(activeFilter.title)")
@@ -308,8 +331,26 @@ private struct FilterMenu: View {
     }
 }
 
+private struct FilterShortcutBadge: View {
+    let value: String
+
+    init(_ value: String) {
+        self.value = value
+    }
+
+    var body: some View {
+        Text(value)
+            .appFont(size: 10, weight: .medium, design: .monospaced)
+            .foregroundStyle(Color.secondary)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1.5)
+            .background(Color.secondary.opacity(0.10), in: RoundedRectangle(cornerRadius: 4))
+    }
+}
+
 private struct ExpandingSearchField: View {
     @Binding var text: String
+    @Binding var isPresented: Bool
     let focusRequestID: Int
     let onSubmit: (String) -> Void
 
@@ -373,6 +414,7 @@ private struct ExpandingSearchField: View {
         .frame(maxWidth: .infinity, alignment: .trailing)
         .onAppear {
             draftText = text
+            isPresented = showsField
         }
         .onChange(of: text) { _, newValue in
             guard newValue != draftText else {
@@ -380,6 +422,9 @@ private struct ExpandingSearchField: View {
             }
 
             draftText = newValue
+        }
+        .onChange(of: showsField) { _, newValue in
+            isPresented = newValue
         }
         .onChange(of: focusRequestID) { _, _ in
             expandAndFocus()
@@ -401,6 +446,7 @@ private struct ExpandingSearchField: View {
     private func expandAndFocus() {
         withAnimation(.easeInOut(duration: 0.16)) {
             isExpanded = true
+            isPresented = true
         }
 
         DispatchQueue.main.async {

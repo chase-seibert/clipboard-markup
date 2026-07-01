@@ -1,9 +1,9 @@
 import Foundation
 
 public enum LibraryFilter: String, CaseIterable, Identifiable, Hashable {
+    case allClips
     case images
     case text
-    case allClips
     case favorites
     case deleted
 
@@ -37,6 +37,25 @@ public enum LibraryFilter: String, CaseIterable, Identifiable, Hashable {
         case .deleted:
             "trash"
         }
+    }
+
+    public var keyboardShortcutKey: Character {
+        switch self {
+        case .allClips:
+            "1"
+        case .images:
+            "2"
+        case .text:
+            "3"
+        case .favorites:
+            "4"
+        case .deleted:
+            "5"
+        }
+    }
+
+    public var keyboardShortcutLabel: String {
+        "⌘\(keyboardShortcutKey)"
     }
 
     public var emptyTitle: String {

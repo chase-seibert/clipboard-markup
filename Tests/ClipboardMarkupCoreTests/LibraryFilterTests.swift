@@ -33,6 +33,16 @@ final class LibraryFilterTests: XCTestCase {
         XCTAssertFalse(LibraryFilter.deleted.matches(imageItem))
     }
 
+    func testKeyboardShortcutsFollowFilterOrder() {
+        XCTAssertEqual(LibraryFilter.allCases, [.allClips, .images, .text, .favorites, .deleted])
+        XCTAssertEqual(LibraryFilter.allClips.keyboardShortcutKey, "1")
+        XCTAssertEqual(LibraryFilter.images.keyboardShortcutKey, "2")
+        XCTAssertEqual(LibraryFilter.text.keyboardShortcutKey, "3")
+        XCTAssertEqual(LibraryFilter.favorites.keyboardShortcutKey, "4")
+        XCTAssertEqual(LibraryFilter.deleted.keyboardShortcutKey, "5")
+        XCTAssertEqual(LibraryFilter.favorites.keyboardShortcutLabel, "⌘4")
+    }
+
     private var textItem: ClipboardItem {
         ClipboardItem(
             kind: .text,

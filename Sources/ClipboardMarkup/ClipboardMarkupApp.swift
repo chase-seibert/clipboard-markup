@@ -34,6 +34,15 @@ struct ClipboardMarkupApp: App {
         .defaultSize(width: 1080, height: 720)
         .commands {
             CommandGroup(replacing: .newItem) {}
+            CommandMenu("Library") {
+                ForEach(LibraryFilter.allCases) { filter in
+                    Button(filter.title) {
+                        commandRelay.showMainWindow()
+                        libraryPreferences.setFilter(filter)
+                    }
+                    .keyboardShortcut(KeyEquivalent(filter.keyboardShortcutKey), modifiers: [.command])
+                }
+            }
             CommandGroup(before: .textEditing) {
                 Divider()
 
