@@ -198,7 +198,7 @@ private struct RecentClipPanelRow: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(MenuBarTitleFormatter.title(for: item, limit: 44))
-                            .appFont(size: 12.5, weight: .semibold)
+                            .appFont(size: 12.5)
                             .foregroundStyle(.primary)
                             .lineLimit(2)
                             .frame(maxWidth: .infinity, alignment: .leading)
