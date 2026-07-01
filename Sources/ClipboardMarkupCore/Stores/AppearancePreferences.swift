@@ -1,6 +1,27 @@
 import Combine
 import Foundation
 
+public enum AppColorSchemePreference: String, CaseIterable, Codable, Identifiable {
+    case system
+    case light
+    case dark
+
+    public var id: String {
+        rawValue
+    }
+
+    public var title: String {
+        switch self {
+        case .system:
+            "System"
+        case .light:
+            "Light"
+        case .dark:
+            "Dark"
+        }
+    }
+}
+
 @MainActor
 public final class AppearancePreferences: ObservableObject {
     public static let minimumFontScale = 0.85
@@ -14,6 +35,7 @@ public final class AppearancePreferences: ObservableObject {
 
     @Published public private(set) var fontScale: Double
     @Published public private(set) var thumbnailSize: Double
+    @Published public private(set) var colorSchemePreference: AppColorSchemePreference
 
     private let userDefaults: UserDefaults
 
@@ -28,6 +50,10 @@ public final class AppearancePreferences: ObservableObject {
             ? Self.defaultThumbnailSize
             : userDefaults.double(forKey: Keys.thumbnailSize)
         self.thumbnailSize = Self.clampThumbnailSize(storedThumbnailSize)
+
+        let storedColorSchemePreference = userDefaults.string(forKey: Keys.colorSchemePreference)
+            .flatMap(AppColorSchemePreference.init(rawValue:)) ?? .system
+        self.colorSchemePreference = storedColorSchemePreference
     }
 
     public var percentageLabel: String {
@@ -66,6 +92,11 @@ public final class AppearancePreferences: ObservableObject {
         userDefaults.set(clamped, forKey: Keys.thumbnailSize)
     }
 
+    public func setColorSchemePreference(_ colorSchemePreference: AppColorSchemePreference) {
+        self.colorSchemePreference = colorSchemePreference
+        userDefaults.set(colorSchemePreference.rawValue, forKey: Keys.colorSchemePreference)
+    }
+
     private static func clamp(_ value: Double) -> Double {
         min(max(value, minimumFontScale), maximumFontScale)
     }
@@ -77,5 +108,6 @@ public final class AppearancePreferences: ObservableObject {
     private enum Keys {
         static let fontScale = "appearance.fontScale"
         static let thumbnailSize = "appearance.thumbnailSize"
+        static let colorSchemePreference = "appearance.colorSchemePreference"
     }
 }

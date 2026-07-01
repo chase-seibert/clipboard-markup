@@ -34,6 +34,7 @@ struct ClipboardMarkupApp: App {
             )
                 .environment(\.appFontScale, appearancePreferences.fontScale)
                 .environment(\.appThumbnailSize, CGFloat(appearancePreferences.thumbnailSize))
+                .preferredColorScheme(appearancePreferences.colorSchemePreference.colorScheme)
                 .frame(minWidth: 980, minHeight: 640)
                 .onAppear {
                     store.analyticsRecorder = analyticsRecorder
@@ -168,6 +169,7 @@ struct ClipboardMarkupApp: App {
                 analyticsRecorder: analyticsRecorder
             )
                 .environment(\.appFontScale, appearancePreferences.fontScale)
+                .preferredColorScheme(appearancePreferences.colorSchemePreference.colorScheme)
         }
 
         MenuBarExtra("Clipboard Markup", systemImage: "doc.on.clipboard") {
@@ -178,6 +180,7 @@ struct ClipboardMarkupApp: App {
                 analyticsRecorder: analyticsRecorder
             )
                 .environment(\.appFontScale, appearancePreferences.fontScale)
+                .preferredColorScheme(appearancePreferences.colorSchemePreference.colorScheme)
         }
         .menuBarExtraStyle(.window)
     }
@@ -373,6 +376,19 @@ struct ClipboardMarkupApp: App {
             item.hasMarkedImage ? "Marked Image (.png)" : "Image (.png)"
         case .originalImage:
             "Original Image (.png)"
+        }
+    }
+}
+
+private extension AppColorSchemePreference {
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system:
+            nil
+        case .light:
+            .light
+        case .dark:
+            .dark
         }
     }
 }

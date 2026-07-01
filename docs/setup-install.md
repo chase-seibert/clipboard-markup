@@ -36,7 +36,7 @@ make test
 
 The app uses `Control` + `Option` + `C` as its default global shortcut. If another app owns that shortcut, the app still runs, and Settings shows that the shortcut is not registered until the conflict is removed or the shortcut is changed.
 
-Use `Command` + `+` and `Command` + `-` to change app text size. Use `Command` + `0` to reset text size to 100%.
+Use `Command` + `+` and `Command` + `-` to change app text size. Use `Command` + `0` to reset text size to 100%. Settings > Appearance can follow the system appearance or force Clipboard Markup to Light or Dark mode.
 
 Open Settings to resize sidebar image thumbnails up to 300 pt. The sidebar can be dragged wider when using larger thumbnails. Image thumbnails show the full screenshot plus a centered 1:1 magnifying-glass lens while the thumbnail is below 50% scale. Image clip names start with the existing dimension-based fallback, then update from local text transcription when OCR finds readable text; editing the title in the detail header creates a manual name that takes precedence.
 
@@ -46,7 +46,7 @@ Clipboard Markup skips pasteboard contents that declare common macOS concealed, 
 
 Use the compact icon-only filter menu at the top-right of the sidebar to switch between Images, Text, All Clips, Favorites, and Deleted Items. The filter defaults to Images. Click the magnifying-glass search control beside it, or press `Command-F`, to expand sidebar search, which filters the selected view by clip name, copied text content, or image OCR transcript.
 
-The app persists the current sidebar filter and selected clip between launches. Appearance settings, thumbnail size, and the global shortcut are also persisted in user defaults.
+The app persists the current sidebar filter and selected clip between launches. Appearance theme, text size, thumbnail size, and the global shortcut are also persisted in user defaults.
 
 Select a history entry and press Delete/Backspace while the list is focused to move it to Deleted Items. The detail header also has a trash icon for deleting the selected entry. Deleted Items rows and details expose Restore; deleted entries are permanently purged after 30 days.
 

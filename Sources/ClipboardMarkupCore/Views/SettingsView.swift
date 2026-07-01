@@ -91,6 +91,20 @@ public struct SettingsView: View {
     private var appearanceForm: some View {
         Form {
             Section {
+                Picker("Theme", selection: Binding(
+                    get: { appearancePreferences.colorSchemePreference },
+                    set: { appearancePreferences.setColorSchemePreference($0) }
+                )) {
+                    ForEach(AppColorSchemePreference.allCases) { preference in
+                        Text(preference.title)
+                            .appFont(size: 13)
+                            .tag(preference)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Divider()
+
                 HStack {
                     Text("Text size")
                         .appFont(size: 13)

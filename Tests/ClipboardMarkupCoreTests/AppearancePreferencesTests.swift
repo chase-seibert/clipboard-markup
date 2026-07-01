@@ -65,4 +65,25 @@ final class AppearancePreferencesTests: XCTestCase {
         reloaded.setThumbnailSize(10)
         XCTAssertEqual(reloaded.thumbnailSize, AppearancePreferences.minimumThumbnailSize)
     }
+
+    func testColorSchemePreferenceDefaultsPersistsAndFallsBackToSystem() {
+        let suiteName = "ClipboardMarkupTests.\(UUID().uuidString)"
+        guard let userDefaults = UserDefaults(suiteName: suiteName) else {
+            return XCTFail("Could not create isolated defaults suite.")
+        }
+        defer {
+            userDefaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let preferences = AppearancePreferences(userDefaults: userDefaults)
+        XCTAssertEqual(preferences.colorSchemePreference, .system)
+
+        preferences.setColorSchemePreference(.dark)
+        let reloaded = AppearancePreferences(userDefaults: userDefaults)
+        XCTAssertEqual(reloaded.colorSchemePreference, .dark)
+
+        userDefaults.set("midnight", forKey: "appearance.colorSchemePreference")
+        let invalidReload = AppearancePreferences(userDefaults: userDefaults)
+        XCTAssertEqual(invalidReload.colorSchemePreference, .system)
+    }
 }
