@@ -23,9 +23,13 @@ public final class ClipboardStore: ObservableObject {
     private var transcriptionTasks: [ClipboardItem.ID: Task<Void, Never>] = [:]
     private var purgeTimer: Timer?
 
-    public init() {
-        self.storage = ClipboardStorage()
-        self.monitor = PasteboardMonitor()
+    public convenience init() {
+        self.init(storage: ClipboardStorage(), monitor: PasteboardMonitor())
+    }
+
+    init(storage: ClipboardStorage, monitor: PasteboardMonitor) {
+        self.storage = storage
+        self.monitor = monitor
 
         do {
             let loadedItems = try storage.loadItems().sorted { $0.createdAt > $1.createdAt }
@@ -55,6 +59,25 @@ public final class ClipboardStore: ObservableObject {
         monitor.start()
         purgeExpiredDeletedItems()
         startPurgeTimer()
+    }
+
+    @discardableResult
+    public func clearHistory() -> Bool {
+        do {
+            for task in transcriptionTasks.values {
+                task.cancel()
+            }
+            transcriptionTasks.removeAll()
+
+            try storage.clearHistory()
+            items = []
+            lastError = nil
+            monitor.acceptCurrentChangeCount()
+            return true
+        } catch {
+            lastError = error.localizedDescription
+            return false
+        }
     }
 
     public func item(id: ClipboardItem.ID?) -> ClipboardItem? {

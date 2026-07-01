@@ -5,12 +5,21 @@ import SwiftUI
 public struct SettingsView: View {
     @ObservedObject private var shortcutPreferences: ShortcutPreferences
     @ObservedObject private var appearancePreferences: AppearancePreferences
+    @ObservedObject private var store: ClipboardStore
+    @ObservedObject private var libraryPreferences: LibraryPreferences
     private let storage = ClipboardStorage()
     @State private var isRecordingShortcut = false
 
-    public init(shortcutPreferences: ShortcutPreferences, appearancePreferences: AppearancePreferences) {
+    public init(
+        shortcutPreferences: ShortcutPreferences,
+        appearancePreferences: AppearancePreferences,
+        store: ClipboardStore,
+        libraryPreferences: LibraryPreferences
+    ) {
         self.shortcutPreferences = shortcutPreferences
         self.appearancePreferences = appearancePreferences
+        self.store = store
+        self.libraryPreferences = libraryPreferences
     }
 
     public var body: some View {
@@ -25,9 +34,13 @@ public struct SettingsView: View {
                     Label("Shortcut", systemImage: "keyboard")
                 }
 
-            AgentIntegrationSettingsView(storage: storage)
+            DataSettingsView(
+                storage: storage,
+                store: store,
+                libraryPreferences: libraryPreferences
+            )
                 .tabItem {
-                    Label("LLM Integration", systemImage: "sparkles")
+                    Label("Data", systemImage: "externaldrive")
                 }
         }
         .padding(20)
@@ -158,9 +171,13 @@ public struct SettingsView: View {
     }
 }
 
-private struct AgentIntegrationSettingsView: View {
+private struct DataSettingsView: View {
     let storage: ClipboardStorage
+    @ObservedObject var store: ClipboardStore
+    @ObservedObject var libraryPreferences: LibraryPreferences
+
     @State private var didCopyPrompt = false
+    @State private var isConfirmingClearHistory = false
 
     var body: some View {
         Form {
@@ -205,8 +222,37 @@ private struct AgentIntegrationSettingsView: View {
                 Text("Agent Prompt")
                     .appFont(size: 12, weight: .semibold)
             }
+
+            Section {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Permanently delete all captured clipboard entries and media. This does not change the current system clipboard or app settings.")
+                        .appFont(size: 13)
+                        .foregroundStyle(.secondary)
+
+                    HStack {
+                        Spacer()
+
+                        Button(role: .destructive) {
+                            isConfirmingClearHistory = true
+                        } label: {
+                            Label("Clear Clipboard History...", systemImage: "trash")
+                        }
+                    }
+                }
+            } header: {
+                Text("Danger")
+                    .appFont(size: 12, weight: .semibold)
+            }
         }
         .formStyle(.grouped)
+        .alert("Clear Clipboard History?", isPresented: $isConfirmingClearHistory) {
+            Button("Cancel", role: .cancel) {}
+            Button("Clear History", role: .destructive) {
+                clearHistory()
+            }
+        } message: {
+            Text("This permanently deletes all saved clipboard entries and media from Clipboard Markup. Your current system clipboard and app settings will not be changed.")
+        }
         .onAppear {
             try? storage.ensureAgentGuide()
         }
@@ -222,6 +268,12 @@ private struct AgentIntegrationSettingsView: View {
     private func openDataDirectory() {
         try? storage.ensureAgentGuide()
         NSWorkspace.shared.open(storage.rootURL)
+    }
+
+    private func clearHistory() {
+        if store.clearHistory() {
+            libraryPreferences.setSelectedItemID(nil)
+        }
     }
 }
 

@@ -10,8 +10,10 @@
 - Polished the main window spacing, sidebar row density, detail header hierarchy, action button sizing, image preview framing, and single-window tab behavior.
 - Added persistent app font scaling through Settings and Command-plus, Command-minus, and Command-zero shortcuts.
 - Added configurable image thumbnail sizing, renameable clip titles, and local image text transcription for automatic image names.
+- Added stacked text snippet preview tiles in the clipboard history list.
 - Added a detail title pencil emoji button for manual renaming.
 - Added sidebar search across clip names, copied text contents, and image OCR transcripts.
+- Added `Command-F` to open and focus the sidebar search field.
 - Replaced the tall Library filter rows with a compact right-aligned sidebar filter menu, still defaulting the list to Images.
 - Moved search back beside the sidebar filter as a magnifying-glass control that expands horizontally when clicked.
 - Increased the maximum sidebar thumbnail size to 300 pt and widened the resizable sidebar range.
@@ -23,4 +25,5 @@
 - Added entry deletion from the focused history list with Delete/Backspace and a trash icon in the detail header.
 - Changed deletion to a recoverable Deleted Items flow with restore actions and 30-day permanent purging.
 - Added a generated data-directory `AGENTS.md` guide and a Settings LLM Integration tab with Finder access and a copyable agent prompt snippet.
+- Renamed the Settings integration area to Data and added a confirmed clear-history action for captured clipboard data and media.
 - Automatically selected and navigated to newly captured clipboard items.

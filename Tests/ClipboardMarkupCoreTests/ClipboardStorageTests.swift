@@ -104,6 +104,42 @@ final class ClipboardStorageTests: XCTestCase {
         XCTAssertTrue(storage.agentPromptSnippet.contains("type and date range"))
     }
 
+    func testClearHistoryRemovesMediaWritesEmptyManifestAndPreservesAgentGuide() throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ClipboardMarkupTests-\(UUID().uuidString)", isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: rootURL)
+        }
+
+        let storage = ClipboardStorage(rootURL: rootURL)
+        let itemID = UUID()
+        let richTextFilename = try storage.saveRichText(Data("rich".utf8), itemID: itemID)
+        let originalFilename = try storage.saveImage(testImage(), itemID: itemID, variant: "original")
+        let item = ClipboardItem(
+            id: itemID,
+            kind: .image,
+            richTextFilename: richTextFilename,
+            originalImageFilename: originalFilename,
+            fingerprint: "image:test"
+        )
+        try storage.saveItems([item])
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: storage.url(filename: richTextFilename).path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: storage.url(filename: originalFilename).path))
+
+        try storage.clearHistory()
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: storage.mediaURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: storage.manifestURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: storage.agentGuideURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storage.url(filename: richTextFilename).path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: storage.url(filename: originalFilename).path))
+        XCTAssertEqual(try storage.loadItems(), [])
+
+        let guide = try String(contentsOf: storage.agentGuideURL)
+        XCTAssertTrue(guide.contains(storage.agentGuideURL.path))
+    }
+
     private func testImage() -> NSImage {
         let image = NSImage(size: CGSize(width: 12, height: 12))
         image.lockFocus()

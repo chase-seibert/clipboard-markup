@@ -34,6 +34,15 @@ struct ClipboardMarkupApp: App {
         .defaultSize(width: 1080, height: 720)
         .commands {
             CommandGroup(replacing: .newItem) {}
+            CommandGroup(before: .textEditing) {
+                Divider()
+
+                Button("Find Clips") {
+                    commandRelay.showSearch()
+                }
+                .keyboardShortcut("f", modifiers: [.command])
+            }
+
             CommandGroup(after: .sidebar) {
                 Divider()
 
@@ -55,7 +64,12 @@ struct ClipboardMarkupApp: App {
         }
 
         Settings {
-            SettingsView(shortcutPreferences: shortcutPreferences, appearancePreferences: appearancePreferences)
+            SettingsView(
+                shortcutPreferences: shortcutPreferences,
+                appearancePreferences: appearancePreferences,
+                store: store,
+                libraryPreferences: libraryPreferences
+            )
                 .environment(\.appFontScale, appearancePreferences.fontScale)
         }
 

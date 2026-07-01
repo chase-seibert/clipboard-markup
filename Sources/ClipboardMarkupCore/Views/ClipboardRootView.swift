@@ -7,6 +7,7 @@ public struct ClipboardRootView: View {
     @ObservedObject private var libraryPreferences: LibraryPreferences
 
     @State private var searchText = ""
+    @State private var searchFocusRequestID = 0
 
     public init(
         store: ClipboardStore,
@@ -25,6 +26,7 @@ public struct ClipboardRootView: View {
                 libraryFilter: libraryFilterBinding,
                 selectedID: selectedIDBinding,
                 searchText: $searchText,
+                searchFocusRequestID: searchFocusRequestID,
                 items: displayedItems,
                 onDeleteSelection: deleteSelectedItem,
                 onDeleteItem: deleteItem,
@@ -47,6 +49,7 @@ public struct ClipboardRootView: View {
         .modifier(WindowCommandInstaller(commandRelay: commandRelay))
         .onAppear {
             selectFallbackItem()
+            handleSearchRequestIfNeeded()
         }
         .onChange(of: store.items.map(\.id)) { oldIDs, newIDs in
             if let newestID = newIDs.first, !oldIDs.contains(newestID) {
@@ -57,6 +60,9 @@ public struct ClipboardRootView: View {
         }
         .onChange(of: libraryPreferences.filter) { _, _ in
             selectFallbackItem()
+        }
+        .onChange(of: commandRelay.searchRequestID) { _, _ in
+            handleSearchRequestIfNeeded()
         }
     }
 
@@ -133,6 +139,14 @@ public struct ClipboardRootView: View {
         store.restore(itemID: itemID)
         selectFallbackItem()
     }
+
+    private func handleSearchRequestIfNeeded() {
+        guard commandRelay.consumeSearchRequestIfNeeded() else {
+            return
+        }
+
+        searchFocusRequestID += 1
+    }
 }
 
 private struct SidebarView: View {
@@ -140,6 +154,7 @@ private struct SidebarView: View {
     @Binding var libraryFilter: LibraryFilter
     @Binding var selectedID: ClipboardItem.ID?
     @Binding var searchText: String
+    let searchFocusRequestID: Int
     let items: [ClipboardItem]
     let onDeleteSelection: () -> Void
     let onDeleteItem: (ClipboardItem.ID) -> Void
@@ -150,7 +165,7 @@ private struct SidebarView: View {
             HStack(spacing: 8) {
                 Spacer(minLength: 0)
 
-                ExpandingSearchField(text: $searchText)
+                ExpandingSearchField(text: $searchText, focusRequestID: searchFocusRequestID)
 
                 FilterMenu(selection: $libraryFilter)
                     .frame(width: 38)
@@ -283,6 +298,8 @@ private struct FilterMenu: View {
 
 private struct ExpandingSearchField: View {
     @Binding var text: String
+    let focusRequestID: Int
+
     @FocusState private var isFocused: Bool
     @State private var isExpanded = false
 
@@ -301,7 +318,7 @@ private struct ExpandingSearchField: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help("Search clips")
+            .help("Search clips (Command-F)")
 
             if showsField {
                 TextField("Search", text: $text)
@@ -333,6 +350,9 @@ private struct ExpandingSearchField: View {
         }
         .clipped()
         .animation(.easeInOut(duration: 0.16), value: showsField)
+        .onChange(of: focusRequestID) { _, _ in
+            expandAndFocus()
+        }
         .onChange(of: isFocused) { _, focused in
             guard !focused, text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 return
@@ -404,7 +424,7 @@ private struct ClipboardRow: View {
     }
 
     private var usesStackedLayout: Bool {
-        item.kind == .image && thumbnailSize >= 120
+        item.kind == .text || (item.kind == .image && thumbnailSize >= 120)
     }
 
     private var metadataView: some View {
@@ -431,7 +451,9 @@ private struct ClipboardRow: View {
     @ViewBuilder
     private var rowPreview: some View {
         ZStack(alignment: .bottomTrailing) {
-            if item.kind == .image,
+            if item.kind == .text {
+                TextSnippetPreviewTile(text: item.plainText ?? "")
+            } else if item.kind == .image,
                let image = store.image(for: item, variant: .preferred) {
                 ImageHybridThumbnail(image: image)
                     .frame(width: thumbnailWidth, height: thumbnailHeight)
@@ -455,6 +477,47 @@ private struct ClipboardRow: View {
                     .offset(x: 2, y: 2)
             }
         }
+    }
+}
+
+private struct TextSnippetPreviewTile: View {
+    @Environment(\.appFontScale) private var appFontScale
+
+    let text: String
+
+    private let fontSize: CGFloat = 12
+    private let verticalPadding: CGFloat = 8
+
+    var body: some View {
+        GeometryReader { geometry in
+            Text(previewText)
+                .appFont(size: fontSize)
+                .foregroundStyle(Color.primary.opacity(0.78))
+                .lineLimit(lineLimit(for: geometry.size.height))
+                .truncationMode(.tail)
+                .multilineTextAlignment(.leading)
+                .padding(.horizontal, 9)
+                .padding(.vertical, verticalPadding)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 5))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 5)
+                        .stroke(Color.secondary.opacity(0.20), lineWidth: 1)
+                }
+                .clipped()
+        }
+    }
+
+    private var previewText: String {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedText.isEmpty ? "No text" : trimmedText
+    }
+
+    private func lineLimit(for height: CGFloat) -> Int {
+        let scaledFontSize = max(8, fontSize * CGFloat(appFontScale))
+        let lineHeight = scaledFontSize * 1.22
+        let contentHeight = max(0, height - (verticalPadding * 2))
+        return max(1, Int(floor(contentHeight / lineHeight)))
     }
 }
 

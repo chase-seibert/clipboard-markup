@@ -108,6 +108,18 @@ struct ClipboardStorage {
         try ensureDirectories()
     }
 
+    func clearHistory() throws {
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+
+        if FileManager.default.fileExists(atPath: mediaURL.path) {
+            try FileManager.default.removeItem(at: mediaURL)
+        }
+
+        try FileManager.default.createDirectory(at: mediaURL, withIntermediateDirectories: true)
+        try writeAgentGuideIfNeeded()
+        try saveItems([])
+    }
+
     func saveRichText(_ data: Data, itemID: UUID) throws -> String {
         try ensureDirectories()
         let filename = "\(itemID.uuidString)-rich.rtf"

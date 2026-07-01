@@ -29,7 +29,7 @@ This keeps metadata and binary assets relocatable. A future iCloud implementatio
 
 Deletion is soft by default: entries keep their manifest row and media files with a `deletedAt` timestamp so they can be restored from Deleted Items. On load and during periodic monitoring, storage purges deleted entries older than 30 days and removes their associated media files.
 
-The Settings window exposes an LLM Integration tab with the absolute data-directory path, a Finder button, and a copyable prompt snippet. The snippet points agents at the generated `AGENTS.md`, which contains the detailed manifest/media loading instructions.
+The Settings window exposes a Data tab with the absolute data-directory path, a Finder button, and a copyable prompt snippet. The snippet points agents at the generated `AGENTS.md`, which contains the detailed manifest/media loading instructions. The same tab includes a confirmed destructive clear action that removes `entries.json` history contents and media files while preserving the current system clipboard and user preferences.
 
 ## Platform Bridges
 
