@@ -10,11 +10,9 @@ struct MarkupEditorView: View {
     @State private var elements: [MarkupElement]
     @State private var selectedElementID: MarkupElement.ID?
     @State private var tool = MarkupTool.arrow
-    @State private var colorHex = "#FF3B30"
-    @State private var lineWidth = 8.0
-    @State private var fontName = "Helvetica Neue"
-    @State private var fontSize = 42.0
-    @State private var textValue = "Text"
+    @AppStorage("markupEditor.colorHex") private var colorHex = "#FF3B30"
+    @AppStorage("markupEditor.lineWeight") private var lineWidth = 8.0
+    @AppStorage("markupEditor.textSize") private var fontSize = 42.0
 
     init(
         originalImage: NSImage,
@@ -35,11 +33,15 @@ struct MarkupEditorView: View {
                 tool: $tool,
                 colorHex: $colorHex,
                 lineWidth: $lineWidth,
-                fontName: $fontName,
                 fontSize: $fontSize,
-                textValue: $textValue
+                selectedKind: selectedElement?.kind,
+                canDeleteSelectedMarkup: selectedElementID != nil,
+                hasMarkupElements: !elements.isEmpty,
+                onDeleteSelectedMarkup: deleteSelectedElement,
+                onRevertMarkup: revertMarkup
             )
-            .padding(12)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
 
             Divider()
 
@@ -50,23 +52,13 @@ struct MarkupEditorView: View {
                 tool: tool,
                 colorHex: colorHex,
                 lineWidth: lineWidth,
-                fontName: fontName,
-                fontSize: fontSize,
-                textValue: textValue
+                fontSize: fontSize
             )
             .padding(12)
 
             Divider()
 
             HStack {
-                Button {
-                    deleteSelectedElement()
-                } label: {
-                    Label("Delete", systemImage: "trash")
-                        .appFont(size: 13)
-                }
-                .disabled(selectedElementID == nil)
-
                 Spacer()
 
                 Button {
@@ -78,16 +70,20 @@ struct MarkupEditorView: View {
                 .keyboardShortcut(.cancelAction)
 
                 Button {
-                    onSave(elements)
+                    onSave(elements.filter(\.isRenderable))
                 } label: {
                     Label("Save", systemImage: "checkmark")
                         .appFont(size: 13)
                 }
                 .keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent)
+                .tint(.blue)
             }
             .padding(12)
         }
-        .onChange(of: selectedElementID) { _, newValue in
+        .onDeleteCommand(perform: deleteSelectedElement)
+        .onChange(of: selectedElementID) { oldValue, newValue in
+            pruneEmptyTextElement(id: oldValue)
             syncControlsFromSelection(newValue)
         }
         .onChange(of: colorHex) { _, _ in
@@ -96,15 +92,17 @@ struct MarkupEditorView: View {
         .onChange(of: lineWidth) { _, _ in
             applyControlsToSelection()
         }
-        .onChange(of: fontName) { _, _ in
-            applyControlsToSelection()
-        }
         .onChange(of: fontSize) { _, _ in
             applyControlsToSelection()
         }
-        .onChange(of: textValue) { _, _ in
-            applyControlsToSelection()
+    }
+
+    private var selectedElement: MarkupElement? {
+        guard let selectedElementID else {
+            return nil
         }
+
+        return elements.first { $0.id == selectedElementID }
     }
 
     private func syncControlsFromSelection(_ id: MarkupElement.ID?) {
@@ -116,11 +114,7 @@ struct MarkupEditorView: View {
 
         colorHex = element.colorHex
         lineWidth = element.lineWidth
-        fontName = element.fontName
         fontSize = element.fontSize
-        if element.kind == .text {
-            textValue = element.text
-        }
     }
 
     private func applyControlsToSelection() {
@@ -131,11 +125,11 @@ struct MarkupEditorView: View {
         }
 
         elements[index].colorHex = colorHex
-        elements[index].lineWidth = lineWidth
-        elements[index].fontName = fontName
-        elements[index].fontSize = fontSize
-        if elements[index].kind == .text {
-            elements[index].text = textValue
+        switch elements[index].kind {
+        case .arrow, .rectangle:
+            elements[index].lineWidth = lineWidth
+        case .text:
+            elements[index].fontSize = fontSize
         }
     }
 
@@ -146,17 +140,33 @@ struct MarkupEditorView: View {
         elements.removeAll { $0.id == selectedElementID }
         self.selectedElementID = nil
     }
+
+    private func revertMarkup() {
+        elements.removeAll()
+        selectedElementID = nil
+    }
+
+    private func pruneEmptyTextElement(id: MarkupElement.ID?) {
+        guard let id else {
+            return
+        }
+
+        elements.removeAll { element in
+            element.id == id && element.kind == .text && !element.isRenderable
+        }
+    }
 }
 
 private struct MarkupToolbar: View {
-    @Environment(\.appFontScale) private var appFontScale
-
     @Binding var tool: MarkupTool
     @Binding var colorHex: String
     @Binding var lineWidth: Double
-    @Binding var fontName: String
     @Binding var fontSize: Double
-    @Binding var textValue: String
+    let selectedKind: MarkupElement.Kind?
+    let canDeleteSelectedMarkup: Bool
+    let hasMarkupElements: Bool
+    let onDeleteSelectedMarkup: () -> Void
+    let onRevertMarkup: () -> Void
 
     private let palette = [
         "#FF3B30",
@@ -169,88 +179,293 @@ private struct MarkupToolbar: View {
         "#111111"
     ]
 
-    private let fontOptions = [
-        "Helvetica Neue",
-        "Avenir Next",
-        "Menlo",
-        "Georgia",
-        "Impact"
-    ]
-
     var body: some View {
-        HStack(spacing: 12) {
-            HStack(spacing: 6) {
-                ForEach(MarkupTool.allCases) { candidate in
-                    Button {
-                        tool = candidate
-                    } label: {
-                        Image(systemName: candidate.systemImage)
-                            .frame(width: 22, height: 22)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(tool == candidate ? .accentColor : nil)
-                    .help(candidate.title)
-                }
+        HStack(spacing: 10) {
+            MarkupToolButton(tool: .select, isSelected: tool == .select) {
+                tool = .select
             }
 
-            Divider()
-                .frame(height: 24)
+            ToolbarSeparator()
 
-            HStack(spacing: 6) {
-                ForEach(palette, id: \.self) { swatch in
-                    Button {
-                        colorHex = swatch
-                    } label: {
-                        Circle()
-                            .fill(Color(hex: swatch))
-                            .overlay {
-                                Circle()
-                                    .stroke(Color.primary.opacity(colorHex == swatch ? 0.9 : 0.25), lineWidth: colorHex == swatch ? 3 : 1)
-                            }
-                            .frame(width: 20, height: 20)
-                    }
-                    .buttonStyle(.plain)
-                    .help(swatch)
+            HStack(spacing: 5) {
+                MarkupToolButton(tool: .arrow, isSelected: tool == .arrow) {
+                    tool = .arrow
                 }
+
+                MarkupToolButton(tool: .rectangle, isSelected: tool == .rectangle) {
+                    tool = .rectangle
+                }
+
+                LineWeightMenu(selection: $lineWidth, isDisabled: selectedKind == .text)
             }
 
-            Divider()
-                .frame(height: 24)
+            ToolbarSeparator()
 
-            Image(systemName: "line.diagonal")
-                .foregroundStyle(.secondary)
-                .appFont(size: 13)
-            Slider(value: $lineWidth, in: 2...28, step: 1)
-                .frame(width: 110)
-                .help("Line width")
-
-            Divider()
-                .frame(height: 24)
-
-            TextField("Text", text: $textValue)
-                .font(.system(size: max(8, 13 * appFontScale)))
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 160)
-
-            Picker("Font", selection: $fontName) {
-                ForEach(fontOptions, id: \.self) { font in
-                    Text(font)
-                        .font(.custom(font, size: max(8, 12 * appFontScale)))
-                        .tag(font)
+            HStack(spacing: 5) {
+                MarkupToolButton(tool: .text, isSelected: tool == .text) {
+                    tool = .text
                 }
-            }
-            .labelsHidden()
-            .frame(width: 150)
 
-            Image(systemName: "textformat.size")
-                .foregroundStyle(.secondary)
-                .appFont(size: 13)
-            Slider(value: $fontSize, in: 18...96, step: 1)
-                .frame(width: 120)
-                .help("Text size")
+                ToolbarValueStepper(
+                    title: "Size",
+                    systemImage: "textformat.size",
+                    value: $fontSize,
+                    range: 18...96,
+                    step: 1,
+                    isDisabled: selectedKind != .text
+                )
+                .help("Select text to change its size")
+            }
+
+            ToolbarSeparator()
+
+            ColorPickerMenu(selection: $colorHex, palette: palette)
 
             Spacer()
+
+            Button {
+                onRevertMarkup()
+            } label: {
+                Label("Revert Markup", systemImage: "arrow.counterclockwise")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.regular)
+            .disabled(!hasMarkupElements)
+            .help("Remove all markup and restore the original image")
+
+            Button(role: .destructive) {
+                onDeleteSelectedMarkup()
+            } label: {
+                Label("Delete selected markup", systemImage: "trash")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.regular)
+            .tint(.red)
+            .disabled(!canDeleteSelectedMarkup)
+            .help("Delete selected markup")
         }
+    }
+}
+
+private struct MarkupToolButton: View {
+    let tool: MarkupTool
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: tool.systemImage)
+                .symbolRenderingMode(.hierarchical)
+                .appFont(size: tool == .text ? 12 : 13, weight: .semibold)
+                .foregroundStyle(Color.primary)
+                .frame(width: 26, height: 26)
+                .contentShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+        .background(
+            isSelected ? Color.primary.opacity(0.12) : Color(nsColor: .controlBackgroundColor),
+            in: RoundedRectangle(cornerRadius: 6)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(isSelected ? Color.primary.opacity(0.28) : Color.secondary.opacity(0.18), lineWidth: 1)
+        }
+        .help(tool.title)
+    }
+}
+
+private struct ToolbarSeparator: View {
+    var body: some View {
+        Divider()
+            .frame(height: 24)
+    }
+}
+
+private struct ColorPickerMenu: View {
+    @Binding var selection: String
+    let palette: [String]
+
+    var body: some View {
+        Menu {
+            ForEach(palette, id: \.self) { swatch in
+                Button {
+                    selection = swatch
+                } label: {
+                    Label {
+                        Text(colorName(for: swatch))
+                    } icon: {
+                        Image(nsImage: swatchImage(for: swatch, diameter: 12))
+                            .renderingMode(.original)
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 7) {
+                Image(nsImage: swatchImage(for: selection, diameter: 14))
+                    .renderingMode(.original)
+
+                Text(colorName(for: selection))
+                    .appFont(size: 12, weight: .medium)
+
+                Image(systemName: "chevron.down")
+                    .appFont(size: 8, weight: .semibold)
+                    .foregroundStyle(.secondary)
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 9)
+            .frame(height: 28)
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
+            .overlay {
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
+            }
+        }
+        .menuStyle(.borderlessButton)
+        .help("Color")
+    }
+
+    private func colorName(for hex: String) -> String {
+        switch hex {
+        case "#FF3B30":
+            "Red"
+        case "#FF9500":
+            "Orange"
+        case "#FFCC00":
+            "Yellow"
+        case "#34C759":
+            "Green"
+        case "#007AFF":
+            "Blue"
+        case "#AF52DE":
+            "Purple"
+        case "#FFFFFF":
+            "White"
+        case "#111111":
+            "Black"
+        default:
+            hex
+        }
+    }
+
+    private func swatchImage(for hex: String, diameter: CGFloat) -> NSImage {
+        let image = NSImage(size: CGSize(width: diameter, height: diameter))
+        image.lockFocus()
+        let rect = CGRect(x: 0, y: 0, width: diameter, height: diameter)
+        let path = NSBezierPath(ovalIn: rect.insetBy(dx: 0.5, dy: 0.5))
+        (NSColor(hex: hex) ?? .systemRed).setFill()
+        path.fill()
+        NSColor.separatorColor.setStroke()
+        path.lineWidth = 1
+        path.stroke()
+        image.unlockFocus()
+        return image
+    }
+}
+
+private struct LineWeightMenu: View {
+    @Binding var selection: Double
+    let isDisabled: Bool
+
+    private let weights = [2.0, 4.0, 6.0, 8.0, 12.0, 16.0, 20.0, 24.0, 28.0]
+
+    var body: some View {
+        Menu {
+            ForEach(weights, id: \.self) { weight in
+                Button {
+                    selection = weight
+                } label: {
+                    HStack {
+                        if roundedSelection == Int(weight) {
+                            Image(systemName: "checkmark")
+                        }
+                        Text("\(Int(weight)) pt")
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: "line.3.horizontal.decrease")
+                    .symbolRenderingMode(.hierarchical)
+                    .appFont(size: 12, weight: .semibold)
+
+                Text("\(roundedSelection)")
+                    .appFont(size: 12, weight: .medium, design: .monospaced)
+
+                Image(systemName: "chevron.down")
+                    .appFont(size: 8, weight: .semibold)
+                    .foregroundStyle(.secondary)
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 9)
+            .frame(height: 28)
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
+            .overlay {
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
+            }
+        }
+        .menuStyle(.borderlessButton)
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.45 : 1)
+        .help("Line weight")
+    }
+
+    private var roundedSelection: Int {
+        Int(round(selection))
+    }
+}
+
+private struct ToolbarValueStepper: View {
+    let title: String
+    let systemImage: String
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let step: Double
+    let isDisabled: Bool
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: systemImage)
+                .symbolRenderingMode(.hierarchical)
+                .appFont(size: 12, weight: .semibold)
+                .foregroundStyle(.secondary)
+                .frame(width: 14)
+
+            Text("\(title) \(Int(round(value)))")
+                .appFont(size: 12, weight: .medium)
+                .foregroundStyle(.primary)
+                .frame(minWidth: 58, alignment: .leading)
+
+            HStack(spacing: 1) {
+                Button {
+                    value = max(range.lowerBound, value - step)
+                } label: {
+                    Image(systemName: "minus")
+                        .frame(width: 20, height: 20)
+                }
+                .disabled(isDisabled || value <= range.lowerBound)
+
+                Button {
+                    value = min(range.upperBound, value + step)
+                } label: {
+                    Image(systemName: "plus")
+                        .frame(width: 20, height: 20)
+                }
+                .disabled(isDisabled || value >= range.upperBound)
+            }
+            .buttonStyle(.plain)
+            .appFont(size: 10, weight: .semibold)
+            .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 8)
+        .frame(height: 28)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
+        .overlay {
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
+        }
+        .opacity(isDisabled ? 0.45 : 1)
+        .allowsHitTesting(!isDisabled)
     }
 }
 
@@ -261,9 +476,7 @@ private struct MarkupCanvas: View {
     let tool: MarkupTool
     let colorHex: String
     let lineWidth: Double
-    let fontName: String
     let fontSize: Double
-    let textValue: String
 
     @State private var draftElement: MarkupElement?
 
@@ -300,6 +513,13 @@ private struct MarkupCanvas: View {
             }
         }
         .background(Color.black.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
+        .onHover { isHovering in
+            if isHovering && tool == .text {
+                NSCursor.iBeam.set()
+            } else {
+                NSCursor.arrow.set()
+            }
+        }
     }
 
     private func creationGesture(canvasSize: CGSize) -> some Gesture {
@@ -320,7 +540,6 @@ private struct MarkupCanvas: View {
                         end: current,
                         colorHex: colorHex,
                         lineWidth: lineWidth,
-                        fontName: fontName,
                         fontSize: fontSize
                     )
                 } else {
@@ -333,15 +552,13 @@ private struct MarkupCanvas: View {
                     selectedElementID = nil
                 case .text:
                     let location = normalizedPoint(from: value.location, canvasSize: canvasSize)
-                    let text = textValue.trimmingCharacters(in: .whitespacesAndNewlines)
                     let element = MarkupElement(
                         kind: .text,
                         start: location,
                         end: location,
-                        text: text.isEmpty ? "Text" : text,
+                        text: "",
                         colorHex: colorHex,
                         lineWidth: lineWidth,
-                        fontName: fontName,
                         fontSize: fontSize
                     )
                     elements.append(element)
@@ -367,6 +584,7 @@ private struct MarkupElementOverlay: View {
     let canvasSize: CGSize
 
     @State private var dragBase: MarkupElement?
+    @FocusState private var isEditingText: Bool
 
     private var isSelected: Bool {
         selectedElementID == element.id
@@ -374,17 +592,33 @@ private struct MarkupElementOverlay: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            MarkupElementDrawing(element: element, canvasSize: canvasSize, isSelected: isSelected)
-                .allowsHitTesting(false)
+            if element.kind == .text && isSelected {
+                editableText
+            } else {
+                MarkupElementDrawing(element: element, canvasSize: canvasSize, isSelected: isSelected)
+                    .allowsHitTesting(false)
 
-            hitTarget
-                .onTapGesture {
-                    selectedElementID = element.id
+                hitTarget
+                    .onTapGesture {
+                        selectedElementID = element.id
+                    }
+                    .gesture(moveGesture)
+
+                if isSelected {
+                    handles
                 }
-                .gesture(moveGesture)
-
-            if isSelected {
-                handles
+            }
+        }
+        .onAppear {
+            if isSelected && element.kind == .text {
+                focusTextEditor()
+            }
+        }
+        .onChange(of: isSelected) { _, selected in
+            if selected && element.kind == .text {
+                focusTextEditor()
+            } else {
+                isEditingText = false
             }
         }
     }
@@ -407,13 +641,42 @@ private struct MarkupElementOverlay: View {
                 .frame(width: max(rect.width, 20), height: max(rect.height, 20))
                 .position(x: rect.midX, y: rect.midY)
         case .text:
-            Text(element.text)
+            Text(element.displayText)
                 .font(.custom(element.fontName, size: CGFloat(element.fontSize)))
                 .padding(8)
                 .opacity(0.01)
                 .contentShape(Rectangle())
                 .position(element.start.cgPoint(in: canvasSize))
         }
+    }
+
+    private var editableText: some View {
+        TextField("Text", text: $element.text)
+            .textFieldStyle(.plain)
+            .font(.custom(element.fontName, size: CGFloat(element.fontSize)))
+            .foregroundStyle(Color(hex: element.colorHex))
+            .focused($isEditingText)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 3)
+            .frame(width: textEditorWidth, alignment: .leading)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 4))
+            .overlay {
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(Color.accentColor.opacity(0.72), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+            }
+            .position(element.start.cgPoint(in: canvasSize))
+            .simultaneousGesture(moveGesture)
+            .onTapGesture {
+                selectedElementID = element.id
+            }
+            .help("Edit text")
+    }
+
+    private var textEditorWidth: CGFloat {
+        let approximateCharacterWidth = max(8, CGFloat(element.fontSize) * 0.58)
+        let textLength = max(4, element.text.count)
+        let preferredWidth = CGFloat(textLength) * approximateCharacterWidth + 18
+        return min(max(82, preferredWidth), max(82, canvasSize.width - 24))
     }
 
     @ViewBuilder
@@ -449,6 +712,12 @@ private struct MarkupElementOverlay: View {
             .onEnded { _ in
                 dragBase = nil
             }
+    }
+
+    private func focusTextEditor() {
+        DispatchQueue.main.async {
+            isEditingText = true
+        }
     }
 
     private func handle(at point: NormalizedPoint, handle: ResizeHandle) -> some View {
@@ -552,7 +821,7 @@ private struct MarkupElementDrawing: View {
     }
 
     private var text: some View {
-        Text(element.text)
+        Text(element.displayText)
             .font(.custom(element.fontName, size: CGFloat(element.fontSize)))
             .foregroundStyle(Color(hex: element.colorHex))
             .padding(2)
@@ -640,5 +909,16 @@ private func arrowHeadPath(_ geometry: ArrowGeometry) -> Path {
 private extension NormalizedPoint {
     func cgPoint(in size: CGSize) -> CGPoint {
         CGPoint(x: x * size.width, y: y * size.height)
+    }
+}
+
+private extension MarkupElement {
+    var displayText: String {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedText.isEmpty ? "Text" : text
+    }
+
+    var isRenderable: Bool {
+        kind != .text || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }

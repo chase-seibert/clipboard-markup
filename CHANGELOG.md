@@ -29,3 +29,6 @@
 - Renamed the Settings integration area to Data and added a confirmed clear-history action for captured clipboard data and media.
 - Automatically selected and navigated to newly captured clipboard items.
 - Polished the sidebar, detail header/action bar, preview surface, and Settings controls with more consistent spacing, icon treatment, and blue primary actions.
+- Simplified the markup editor toolbar with compact monochrome tools, a color menu, clean width/size controls, and direct on-canvas text editing.
+- Added top-bar markup editor actions for reverting all markup and deleting the selected markup, plus clearer color and line-weight dropdowns.
+- Grouped markup editor controls into tool, shape, text, and color sections and persisted markup color, line weight, and text size preferences.
