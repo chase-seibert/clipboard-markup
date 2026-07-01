@@ -4,13 +4,20 @@ import SwiftUI
 struct ClipboardDetailView: View {
     @ObservedObject var store: ClipboardStore
     let item: ClipboardItem
+    let onDelete: () -> Void
+    let onRestore: () -> Void
     @State private var isEditingMarkup = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                DetailHeader(store: store, item: item)
-                DetailActionBar(store: store, item: item, isEditingMarkup: $isEditingMarkup)
+                DetailHeader(store: store, item: item, onDelete: onDelete, onRestore: onRestore)
+
+                if item.isDeleted {
+                    DeletedItemNotice(item: item, onRestore: onRestore)
+                } else {
+                    DetailActionBar(store: store, item: item, isEditingMarkup: $isEditingMarkup)
+                }
 
                 Divider()
 
@@ -51,6 +58,9 @@ struct ClipboardDetailView: View {
 private struct DetailHeader: View {
     @ObservedObject var store: ClipboardStore
     let item: ClipboardItem
+    let onDelete: () -> Void
+    let onRestore: () -> Void
+    @State private var titleFocusRequest = 0
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
@@ -61,14 +71,22 @@ private struct DetailHeader: View {
                 .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
 
             VStack(alignment: .leading, spacing: 3) {
-                EditableTitleField(store: store, item: item)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    RenameTitleButton {
+                        titleFocusRequest += 1
+                    }
+
+                    EditableTitleField(store: store, item: item, focusRequest: titleFocusRequest)
+                        .layoutPriority(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 HStack(spacing: 10) {
-                    Text("\(item.subtitle)  \(DateFormatting.absolute.string(from: item.createdAt))")
+                    Text(metadataText)
                         .appFont(size: 13)
                         .foregroundStyle(.secondary)
 
-                    if item.kind == .image {
+                    if item.kind == .image && !item.isDeleted {
                         Button("View Original") {
                             store.quickLook(itemID: item.id, variant: .original)
                         }
@@ -81,14 +99,46 @@ private struct DetailHeader: View {
 
             Spacer()
 
-            HeaderFavoriteButton(store: store, item: item)
+            HStack(spacing: 8) {
+                if item.isDeleted {
+                    HeaderRestoreButton(onRestore: onRestore)
+                } else {
+                    HeaderFavoriteButton(store: store, item: item)
+                    HeaderDeleteButton(onDelete: onDelete)
+                }
+            }
         }
+    }
+
+    private var metadataText: String {
+        if let deletedAt = item.deletedAt {
+            return "\(item.subtitle)  Deleted \(DateFormatting.absolute.string(from: deletedAt))"
+        }
+
+        return "\(item.subtitle)  \(DateFormatting.absolute.string(from: item.createdAt))"
+    }
+}
+
+private struct RenameTitleButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text("✏️")
+                .appFont(size: 14)
+                .frame(width: 24, height: 24)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Rename clip")
+        .accessibilityLabel("Rename clip")
     }
 }
 
 private struct EditableTitleField: View {
     @ObservedObject var store: ClipboardStore
     let item: ClipboardItem
+    let focusRequest: Int
 
     @FocusState private var isFocused: Bool
     @State private var draftTitle = ""
@@ -103,6 +153,9 @@ private struct EditableTitleField: View {
             .onSubmit(commitRename)
             .onAppear {
                 draftTitle = item.title
+            }
+            .onChange(of: focusRequest) { _, _ in
+                isFocused = true
             }
             .onChange(of: item.id) { _, _ in
                 draftTitle = item.title
@@ -142,6 +195,73 @@ private struct HeaderFavoriteButton: View {
         .buttonStyle(.plain)
         .keyboardShortcut("d", modifiers: [.command])
         .help(item.isSaved ? "Remove from Favorites (Command-D)" : "Add to Favorites (Command-D)")
+    }
+}
+
+private struct HeaderDeleteButton: View {
+    let onDelete: () -> Void
+
+    var body: some View {
+        Button(role: .destructive, action: onDelete) {
+            Image(systemName: "trash")
+                .appFont(size: 17, weight: .semibold)
+                .foregroundStyle(.red)
+                .frame(width: 30, height: 30)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Delete clip")
+    }
+}
+
+private struct HeaderRestoreButton: View {
+    let onRestore: () -> Void
+
+    var body: some View {
+        Button(action: onRestore) {
+            Image(systemName: "arrow.uturn.backward")
+                .appFont(size: 17, weight: .semibold)
+                .foregroundStyle(.secondary)
+                .frame(width: 30, height: 30)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Restore clip")
+    }
+}
+
+private struct DeletedItemNotice: View {
+    let item: ClipboardItem
+    let onRestore: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Label(message, systemImage: "trash")
+                .appFont(size: 13)
+                .foregroundStyle(.secondary)
+
+            Spacer(minLength: 12)
+
+            Button {
+                onRestore()
+            } label: {
+                Label("Restore", systemImage: "arrow.uturn.backward")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.regular)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var message: String {
+        guard let deletedAt = item.deletedAt else {
+            return "This item is in Deleted Items."
+        }
+
+        let purgeDate = deletedAt.addingTimeInterval(ClipboardItem.deletedItemRetentionInterval)
+        return "This item is in Deleted Items and will be permanently deleted \(DateFormatting.relativeDisplay(for: purgeDate))."
     }
 }
 
@@ -275,22 +395,72 @@ private struct ImageDetailView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if let image = store.image(for: item, variant: .preferred) {
-                ZStack {
-                    Color.secondary.opacity(0.055)
-                    Image(nsImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .padding(16)
-                }
-                .frame(maxWidth: .infinity, minHeight: 500, maxHeight: 620)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.secondary.opacity(0.10), lineWidth: 1)
-                }
+                ScreenshotPreviewSurface(image: image)
+                    .frame(maxWidth: .infinity, minHeight: 500, maxHeight: 620)
             } else {
                 ContentUnavailableView("Image Missing", systemImage: "exclamationmark.triangle")
             }
         }
     }
+}
+
+private struct ScreenshotPreviewSurface: View {
+    let image: NSImage
+
+    var body: some View {
+        GeometryReader { geometry in
+            let canvasSize = geometry.size
+            let inset: CGFloat = 22
+            let availableSize = CGSize(
+                width: max(canvasSize.width - inset * 2, 1),
+                height: max(canvasSize.height - inset * 2, 1)
+            )
+            let fittedRect = fittedImageRect(imageSize: image.size, containerSize: availableSize)
+                .offsetBy(dx: inset, dy: inset)
+
+            ZStack {
+                Color.secondary.opacity(0.07)
+
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: fittedRect.width, height: fittedRect.height)
+                    .background(Color(nsColor: .textBackgroundColor))
+                    .overlay {
+                        Rectangle()
+                            .stroke(Color.primary.opacity(0.30), lineWidth: 1)
+                    }
+                    .shadow(color: Color.black.opacity(0.20), radius: 10, x: 0, y: 3)
+                    .position(x: fittedRect.midX, y: fittedRect.midY)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.primary.opacity(0.18), lineWidth: 1)
+        }
+    }
+}
+
+private func fittedImageRect(imageSize: CGSize, containerSize: CGSize) -> CGRect {
+    guard imageSize.width > 0, imageSize.height > 0, containerSize.width > 0, containerSize.height > 0 else {
+        return .zero
+    }
+
+    let imageAspect = imageSize.width / imageSize.height
+    let containerAspect = containerSize.width / containerSize.height
+    let size: CGSize
+
+    if imageAspect > containerAspect {
+        size = CGSize(width: containerSize.width, height: containerSize.width / imageAspect)
+    } else {
+        size = CGSize(width: containerSize.height * imageAspect, height: containerSize.height)
+    }
+
+    return CGRect(
+        x: (containerSize.width - size.width) / 2,
+        y: (containerSize.height - size.height) / 2,
+        width: size.width,
+        height: size.height
+    )
 }

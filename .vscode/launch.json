@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:clipboard-markup}",
+            "name": "Debug ClipboardMarkup",
+            "target": "ClipboardMarkup",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug ClipboardMarkup"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:clipboard-markup}",
+            "name": "Release ClipboardMarkup",
+            "target": "ClipboardMarkup",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release ClipboardMarkup"
+        }
+    ]
+}

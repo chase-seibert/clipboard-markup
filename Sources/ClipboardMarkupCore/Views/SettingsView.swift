@@ -5,6 +5,7 @@ import SwiftUI
 public struct SettingsView: View {
     @ObservedObject private var shortcutPreferences: ShortcutPreferences
     @ObservedObject private var appearancePreferences: AppearancePreferences
+    private let storage = ClipboardStorage()
     @State private var isRecordingShortcut = false
 
     public init(shortcutPreferences: ShortcutPreferences, appearancePreferences: AppearancePreferences) {
@@ -13,6 +14,27 @@ public struct SettingsView: View {
     }
 
     public var body: some View {
+        TabView {
+            appearanceForm
+                .tabItem {
+                    Label("Appearance", systemImage: "textformat.size")
+                }
+
+            shortcutForm
+                .tabItem {
+                    Label("Shortcut", systemImage: "keyboard")
+                }
+
+            AgentIntegrationSettingsView(storage: storage)
+                .tabItem {
+                    Label("LLM Integration", systemImage: "sparkles")
+                }
+        }
+        .padding(20)
+        .frame(width: 620, height: 540)
+    }
+
+    private var appearanceForm: some View {
         Form {
             Section {
                 HStack {
@@ -76,7 +98,12 @@ public struct SettingsView: View {
                 Text("Appearance")
                     .appFont(size: 12, weight: .semibold)
             }
+        }
+        .formStyle(.grouped)
+    }
 
+    private var shortcutForm: some View {
+        Form {
             Section {
                 HStack {
                     Text("Open Clipboard Markup")
@@ -117,8 +144,6 @@ public struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .padding(20)
-        .frame(width: 500, height: 420)
     }
 
     private var presetBinding: Binding<KeyboardShortcutPreference> {
@@ -130,6 +155,101 @@ public struct SettingsView: View {
             },
             set: { shortcutPreferences.setShortcut($0) }
         )
+    }
+}
+
+private struct AgentIntegrationSettingsView: View {
+    let storage: ClipboardStorage
+    @State private var didCopyPrompt = false
+
+    var body: some View {
+        Form {
+            Section {
+                Text("Clipboard Markup stores its local app data as a JSON manifest plus a media directory. This makes it easy for coding agents to inspect clipboard history when you explicitly point them at the files.")
+                    .appFont(size: 13)
+                    .foregroundStyle(.secondary)
+
+                DataDirectoryRow(
+                    path: storage.rootURL.path,
+                    openAction: openDataDirectory
+                )
+            } header: {
+                Text("Local Data")
+                    .appFont(size: 12, weight: .semibold)
+            }
+
+            Section {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(storage.agentPromptSnippet)
+                        .textSelection(.enabled)
+                        .appFont(size: 12, design: .monospaced)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(10)
+                        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.secondary.opacity(0.12), lineWidth: 1)
+                        }
+
+                    HStack {
+                        Spacer()
+
+                        Button {
+                            copyPrompt()
+                        } label: {
+                            Label(didCopyPrompt ? "Copied" : "Copy Prompt", systemImage: didCopyPrompt ? "checkmark" : "doc.on.doc")
+                        }
+                    }
+                }
+            } header: {
+                Text("Agent Prompt")
+                    .appFont(size: 12, weight: .semibold)
+            }
+        }
+        .formStyle(.grouped)
+        .onAppear {
+            try? storage.ensureAgentGuide()
+        }
+    }
+
+    private func copyPrompt() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(storage.agentPromptSnippet, forType: .string)
+        didCopyPrompt = true
+    }
+
+    private func openDataDirectory() {
+        try? storage.ensureAgentGuide()
+        NSWorkspace.shared.open(storage.rootURL)
+    }
+}
+
+private struct DataDirectoryRow: View {
+    let path: String
+    let openAction: () -> Void
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Data directory")
+                    .appFont(size: 12, weight: .medium)
+                    .foregroundStyle(.secondary)
+
+                Text(path)
+                    .textSelection(.enabled)
+                    .appFont(size: 11, design: .monospaced)
+                    .lineLimit(2)
+            }
+
+            Spacer()
+
+            Button {
+                openAction()
+            } label: {
+                Label("Open in Finder", systemImage: "folder")
+            }
+        }
     }
 }
 

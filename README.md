@@ -7,18 +7,21 @@ The app polls the macOS pasteboard, records new clipboard contents locally, and 
 ## Current Scope
 
 - Clipboard history ordered newest first.
-- Sidebar search across clip names, text contents, and image OCR transcripts.
-- Sidebar Library filters for Images, Text, All Clips, and Favorites, defaulting to Images.
+- New clipboard captures are selected automatically.
+- Compact icon-only sidebar filter menu for Images, Text, All Clips, Favorites, and Deleted Items, defaulting to Images.
+- Expanding sidebar search across clip names, text contents, and image OCR transcripts.
+- Persisted sidebar filter and selected clip across app restarts.
+- Delete selected entries into Deleted Items, restore them from there, and permanently purge them after 30 days.
 - Favorites as a bookmarked subset of the full history.
 - Text and RTF capture, with plain-text and rich-text copy actions.
 - Image and screenshot capture from the system pasteboard.
-- Larger, resizable sidebar thumbnails for image clips.
+- Hybrid sidebar thumbnails for image clips, with full-image context plus a centered 1:1 magnifying-glass lens when thumbnails are below 50% scale, and stacked rows at larger thumbnail sizes.
 - Renameable clipboard entries, with image names updated from local OCR when text is found.
 - Simple image markup: arrows, rectangles, and text with color and size controls.
 - Configurable global shortcut, defaulting to `Control` + `Option` + `C`.
 - Menu bar icon with recent clipboard items and quick access to the app.
 - User-facing text scaling with `Command` + `+`, `Command` + `-`, and `Command` + `0`.
-- Local persistence under Application Support using a manifest plus media files.
+- Local persistence under Application Support using a manifest plus media files, with a generated `AGENTS.md`, Finder access, and a Settings prompt snippet for LLM-assisted inspection.
 
 ## Commands
 

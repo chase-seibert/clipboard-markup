@@ -26,6 +26,14 @@ The app uses `Control` + `Option` + `C` as its default global shortcut. If anoth
 
 Use `Command` + `+` and `Command` + `-` to change app text size. Use `Command` + `0` to reset text size to 100%.
 
-Open Settings to resize sidebar image thumbnails up to 160 pt. The sidebar can be dragged wider when using larger thumbnails. Image clip names start with the existing dimension-based fallback, then update from local text transcription when OCR finds readable text; editing the title in the detail header creates a manual name that takes precedence.
+Open Settings to resize sidebar image thumbnails up to 300 pt. The sidebar can be dragged wider when using larger thumbnails. Image thumbnails show the full screenshot plus a centered 1:1 magnifying-glass lens while the thumbnail is below 50% scale. Image clip names start with the existing dimension-based fallback, then update from local text transcription when OCR finds readable text; editing the title in the detail header creates a manual name that takes precedence.
 
-Use the search field at the top of the sidebar to filter the selected Library row by clip name, copied text content, or image OCR transcript. The Library filter defaults to Images; switch it to Text, All Clips, or Favorites to show other clipboard entries.
+Use the compact icon-only filter menu at the top-right of the sidebar to switch between Images, Text, All Clips, Favorites, and Deleted Items. The filter defaults to Images. Click the magnifying-glass search control beside it to expand sidebar search, which filters the selected view by clip name, copied text content, or image OCR transcript.
+
+The app persists the current sidebar filter and selected clip between launches. Appearance settings, thumbnail size, and the global shortcut are also persisted in user defaults.
+
+Select a history entry and press Delete/Backspace while the list is focused to move it to Deleted Items. The detail header also has a trash icon for deleting the selected entry. Deleted Items rows and details expose Restore; deleted entries are permanently purged after 30 days.
+
+Settings includes an LLM Integration tab. The app writes an `AGENTS.md` guide into `~/Library/Application Support/ClipboardMarkup`, shows the data directory with an Open in Finder button, and provides a copyable prompt snippet that points agents at that generated guide.
+
+New clipboard captures are selected automatically. If the current filter or search would hide the new capture, the app switches to the matching item-kind filter and clears search.

@@ -19,10 +19,12 @@ public struct ClipboardMenuBarExtraContent: View {
 
         Divider()
 
-        if store.items.isEmpty {
+        let recentItems = store.items.filter { !$0.isDeleted }.prefix(5)
+
+        if recentItems.isEmpty {
             Text("No clips yet")
         } else {
-            ForEach(Array(store.items.prefix(5))) { item in
+            ForEach(Array(recentItems)) { item in
                 Button {
                     store.copyPreferred(itemID: item.id)
                 } label: {

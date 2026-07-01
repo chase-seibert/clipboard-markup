@@ -1,6 +1,8 @@
 import Foundation
 
 public struct ClipboardItem: Identifiable, Codable, Equatable, Hashable {
+    public static let deletedItemRetentionInterval: TimeInterval = 30 * 24 * 60 * 60
+
     public enum Kind: String, Codable {
         case text
         case image
@@ -9,6 +11,7 @@ public struct ClipboardItem: Identifiable, Codable, Equatable, Hashable {
     public var id: UUID
     public var createdAt: Date
     public var updatedAt: Date
+    public var deletedAt: Date?
     public var kind: Kind
     public var plainText: String?
     public var richTextFilename: String?
@@ -18,6 +21,7 @@ public struct ClipboardItem: Identifiable, Codable, Equatable, Hashable {
     public var imageHeight: Double?
     public var customTitle: String?
     public var imageTranscript: String?
+    public var thumbnailFocusRect: NormalizedRect?
     public var markups: [MarkupElement]
     public var isSaved: Bool
     public var fingerprint: String
@@ -26,6 +30,7 @@ public struct ClipboardItem: Identifiable, Codable, Equatable, Hashable {
         id: UUID = UUID(),
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
+        deletedAt: Date? = nil,
         kind: Kind,
         plainText: String? = nil,
         richTextFilename: String? = nil,
@@ -35,6 +40,7 @@ public struct ClipboardItem: Identifiable, Codable, Equatable, Hashable {
         imageHeight: Double? = nil,
         customTitle: String? = nil,
         imageTranscript: String? = nil,
+        thumbnailFocusRect: NormalizedRect? = nil,
         markups: [MarkupElement] = [],
         isSaved: Bool = false,
         fingerprint: String
@@ -42,6 +48,7 @@ public struct ClipboardItem: Identifiable, Codable, Equatable, Hashable {
         self.id = id
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.deletedAt = deletedAt
         self.kind = kind
         self.plainText = plainText
         self.richTextFilename = richTextFilename
@@ -51,6 +58,7 @@ public struct ClipboardItem: Identifiable, Codable, Equatable, Hashable {
         self.imageHeight = imageHeight
         self.customTitle = Self.normalizedTitle(customTitle)
         self.imageTranscript = Self.normalizedTranscript(imageTranscript)
+        self.thumbnailFocusRect = thumbnailFocusRect
         self.markups = markups
         self.isSaved = isSaved
         self.fingerprint = fingerprint
@@ -60,8 +68,16 @@ public struct ClipboardItem: Identifiable, Codable, Equatable, Hashable {
         richTextFilename != nil
     }
 
+    public var isDeleted: Bool {
+        deletedAt != nil
+    }
+
     public var hasMarkedImage: Bool {
         markedImageFilename != nil
+    }
+
+    public var hasCustomTitle: Bool {
+        Self.normalizedTitle(customTitle) != nil
     }
 
     public var title: String {
@@ -117,6 +133,14 @@ public struct ClipboardItem: Identifiable, Codable, Equatable, Hashable {
 
         let haystack = Self.normalizedSearchText(searchableText)
         return tokens.allSatisfy { haystack.contains($0) }
+    }
+
+    public func shouldPermanentlyDelete(asOf date: Date) -> Bool {
+        guard let deletedAt else {
+            return false
+        }
+
+        return date.timeIntervalSince(deletedAt) >= Self.deletedItemRetentionInterval
     }
 
     public static func normalizedTitle(_ title: String?) -> String? {

@@ -35,4 +35,21 @@ final class ClipboardItemTitleTests: XCTestCase {
 
         XCTAssertEqual(item.title, "Revenue notes")
     }
+
+    func testHasCustomTitleOnlyWhenManualTitleIsPresent() {
+        let automaticItem = ClipboardItem(
+            kind: .image,
+            imageTranscript: "Activity Score review reached full manager coverage",
+            fingerprint: "image:automatic"
+        )
+        let renamedItem = ClipboardItem(
+            kind: .image,
+            customTitle: "Revenue notes",
+            imageTranscript: "Activity Score review reached full manager coverage",
+            fingerprint: "image:renamed"
+        )
+
+        XCTAssertFalse(automaticItem.hasCustomTitle)
+        XCTAssertTrue(renamedItem.hasCustomTitle)
+    }
 }

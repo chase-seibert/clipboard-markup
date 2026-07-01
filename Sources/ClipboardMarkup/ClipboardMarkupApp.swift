@@ -11,10 +11,15 @@ struct ClipboardMarkupApp: App {
     @StateObject private var commandRelay = AppCommandRelay()
     @StateObject private var shortcutPreferences = ShortcutPreferences()
     @StateObject private var appearancePreferences = AppearancePreferences()
+    @StateObject private var libraryPreferences = LibraryPreferences()
 
     var body: some Scene {
         WindowGroup("Clipboard Markup", id: "main") {
-            ClipboardRootView(store: store, commandRelay: commandRelay)
+            ClipboardRootView(
+                store: store,
+                commandRelay: commandRelay,
+                libraryPreferences: libraryPreferences
+            )
                 .environment(\.appFontScale, appearancePreferences.fontScale)
                 .environment(\.appThumbnailSize, CGFloat(appearancePreferences.thumbnailSize))
                 .frame(minWidth: 980, minHeight: 640)

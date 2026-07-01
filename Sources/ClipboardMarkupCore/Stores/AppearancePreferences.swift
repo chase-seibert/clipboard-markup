@@ -8,7 +8,7 @@ public final class AppearancePreferences: ObservableObject {
     public static let defaultFontScale = 1.0
     public static let fontScaleStep = 0.1
     public static let minimumThumbnailSize = 44.0
-    public static let maximumThumbnailSize = 160.0
+    public static let maximumThumbnailSize = 300.0
     public static let defaultThumbnailSize = 64.0
     public static let thumbnailSizeStep = 4.0
 

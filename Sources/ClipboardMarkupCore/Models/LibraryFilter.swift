@@ -5,6 +5,7 @@ public enum LibraryFilter: String, CaseIterable, Identifiable, Hashable {
     case text
     case allClips
     case favorites
+    case deleted
 
     public var id: String { rawValue }
 
@@ -18,6 +19,8 @@ public enum LibraryFilter: String, CaseIterable, Identifiable, Hashable {
             "All Clips"
         case .favorites:
             "Favorites"
+        case .deleted:
+            "Deleted Items"
         }
     }
 
@@ -31,15 +34,8 @@ public enum LibraryFilter: String, CaseIterable, Identifiable, Hashable {
             "doc.on.clipboard"
         case .favorites:
             "star"
-        }
-    }
-
-    public var listSectionTitle: String {
-        switch self {
-        case .allClips:
-            "Recent"
-        default:
-            title
+        case .deleted:
+            "trash"
         }
     }
 
@@ -53,19 +49,23 @@ public enum LibraryFilter: String, CaseIterable, Identifiable, Hashable {
             "No Clips"
         case .favorites:
             "No Favorites"
+        case .deleted:
+            "No Deleted Items"
         }
     }
 
     public func matches(_ item: ClipboardItem) -> Bool {
         switch self {
         case .images:
-            item.kind == .image
+            !item.isDeleted && item.kind == .image
         case .text:
-            item.kind == .text
+            !item.isDeleted && item.kind == .text
         case .allClips:
-            true
+            !item.isDeleted
         case .favorites:
-            item.isSaved
+            !item.isDeleted && item.isSaved
+        case .deleted:
+            item.isDeleted
         }
     }
 }

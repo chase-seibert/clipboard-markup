@@ -56,6 +56,7 @@ final class AppearancePreferencesTests: XCTestCase {
 
         preferences.setThumbnailSize(400)
         XCTAssertEqual(preferences.thumbnailSize, AppearancePreferences.maximumThumbnailSize)
+        XCTAssertEqual(preferences.thumbnailSize, 300)
 
         preferences.setThumbnailSize(72)
         let reloaded = AppearancePreferences(userDefaults: userDefaults)
