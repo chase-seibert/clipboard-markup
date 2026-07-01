@@ -12,4 +12,13 @@ enum ClipboardCapture {
             fingerprint
         }
     }
+
+    var analyticsKind: AnalyticsClipCaptureKind {
+        switch self {
+        case let .text(_, richRTF, _):
+            richRTF == nil ? .text : .richText
+        case .image:
+            .image
+        }
+    }
 }

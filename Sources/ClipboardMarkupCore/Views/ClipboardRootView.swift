@@ -7,6 +7,7 @@ public struct ClipboardRootView: View {
     @ObservedObject private var store: ClipboardStore
     @ObservedObject private var commandRelay: AppCommandRelay
     @ObservedObject private var libraryPreferences: LibraryPreferences
+    private let analyticsRecorder: AnalyticsRecorder
 
     @State private var searchText = ""
     @State private var searchFocusRequestID = 0
@@ -14,11 +15,13 @@ public struct ClipboardRootView: View {
     public init(
         store: ClipboardStore,
         commandRelay: AppCommandRelay,
-        libraryPreferences: LibraryPreferences
+        libraryPreferences: LibraryPreferences,
+        analyticsRecorder: AnalyticsRecorder
     ) {
         self.store = store
         self.commandRelay = commandRelay
         self.libraryPreferences = libraryPreferences
+        self.analyticsRecorder = analyticsRecorder
     }
 
     public var body: some View {
@@ -34,12 +37,18 @@ public struct ClipboardRootView: View {
                 onQuickLookSelection: quickLookSelectedItem,
                 onDeleteSelection: deleteSelectedItem,
                 onDeleteItem: deleteItem,
-                onRestoreItem: restoreItem
+                onRestoreItem: restoreItem,
+                analyticsRecorder: analyticsRecorder
             )
             .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 700)
         } detail: {
             if let item = store.item(id: libraryPreferences.selectedItemID) {
-                ClipboardDetailView(store: store, commandRelay: commandRelay, item: item) {
+                ClipboardDetailView(
+                    store: store,
+                    commandRelay: commandRelay,
+                    analyticsRecorder: analyticsRecorder,
+                    item: item
+                ) {
                     deleteItem(item.id)
                 } onRestore: {
                     restoreItem(item.id)
@@ -63,7 +72,8 @@ public struct ClipboardRootView: View {
                 selectFallbackItem()
             }
         }
-        .onChange(of: libraryPreferences.filter) { _, _ in
+        .onChange(of: libraryPreferences.filter) { _, newFilter in
+            analyticsRecorder.record(.libraryFilterChanged(AnalyticsLibraryFilter(filter: newFilter)))
             selectFallbackItem()
         }
         .onChange(of: commandRelay.searchRequestID) { _, _ in
@@ -233,6 +243,7 @@ private struct SidebarView: View {
     let onDeleteSelection: () -> Void
     let onDeleteItem: (ClipboardItem.ID) -> Void
     let onRestoreItem: (ClipboardItem.ID) -> Void
+    let analyticsRecorder: AnalyticsRecorder
 
     @FocusState private var isListFocused: Bool
     @State private var isSearchFieldPresented = false
@@ -244,6 +255,9 @@ private struct SidebarView: View {
                     text: $searchText,
                     isPresented: $isSearchFieldPresented,
                     focusRequestID: searchFocusRequestID,
+                    onOpen: {
+                        analyticsRecorder.record(.searchOpened)
+                    },
                     onSubmit: submitSearch
                 )
 
@@ -370,6 +384,7 @@ private struct SidebarView: View {
 
         if !normalizedQuery.isEmpty {
             libraryFilter = .allClips
+            analyticsRecorder.record(.searchSubmitted)
         }
 
         searchText = normalizedQuery
@@ -466,6 +481,7 @@ private struct ExpandingSearchField: View {
     @Binding var text: String
     @Binding var isPresented: Bool
     let focusRequestID: Int
+    let onOpen: () -> Void
     let onSubmit: (String) -> Void
 
     @FocusState private var isFocused: Bool
@@ -559,6 +575,7 @@ private struct ExpandingSearchField: View {
     }
 
     private func expandAndFocus() {
+        onOpen()
         withAnimation(searchAnimation) {
             isExpanded = true
             isPresented = true

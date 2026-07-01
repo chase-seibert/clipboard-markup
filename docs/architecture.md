@@ -13,6 +13,7 @@ Clipboard Markup is a SwiftPM-packaged SwiftUI macOS app. The main scene is a `W
 5. Image clips without a transcript are sent to local Vision OCR; the result is persisted as automatic naming metadata.
 6. Views call store methods to copy entries, rename entries, toggle favorite state, soft-delete or restore entries, or update image markup.
 7. Copy actions update the pasteboard and advance the monitor checkpoint so the app does not re-capture its own writes.
+8. `AnalyticsRecorder` records privacy-safe usage events for app/session activity, clip types, feature actions, filters, search, settings sections, and storage-provider changes. Event properties are restricted to categorical values, counts, and an anonymous install ID.
 
 ## Persistence
 
@@ -31,6 +32,16 @@ This keeps metadata and binary assets relocatable. Settings can move the storage
 Deletion is soft by default: entries keep their manifest row and media files with a `deletedAt` timestamp so they can be restored from Deleted Items. On load and during periodic monitoring, storage purges deleted entries older than 30 days and removes their associated media files.
 
 The Settings window exposes a Storage Location tab with the absolute data-directory path, per-location Finder buttons, and storage-location migration controls. An Other tab contains the copyable prompt snippet that points agents at the generated `AGENTS.md`, plus a confirmed destructive clear action that removes `entries.json` history contents and media files while preserving the current system clipboard and user preferences.
+
+Analytics state is stored separately under fixed local Application Support in `ClipboardMarkup/Analytics`, even when clipboard history is moved to iCloud Drive, Dropbox, Google Drive, or a custom folder. This queue is not synced with clipboard media and is not cleared by Clear Clipboard History.
+
+## Analytics
+
+Analytics configuration is supplied by `Config/AnalyticsConfig.plist` in local builds, by an `AnalyticsConfig.plist` override in Application Support, or by environment variables for tests/smoke runs. The committed `Config/AnalyticsConfig.example.plist` documents the required keys: `analyticsBaseUrl`, `analyticsKeyId`, `analyticsSecret`, and `audience`.
+
+Events are posted as gzipped JSON batches to `{analyticsBaseUrl}/v1/events`, signed with HMAC-SHA256, and retried durably for up to 90 days. The client reuses prepared compressed bytes for retries, handles server pause/redirect/stop-logging responses, and treats permanent validation failures as non-retryable.
+
+Analytics payloads must never include clipboard contents, OCR text, clip titles, search queries, file paths, media filenames, or password-manager contents.
 
 ## Platform Bridges
 

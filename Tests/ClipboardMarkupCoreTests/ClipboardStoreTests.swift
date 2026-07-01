@@ -154,6 +154,44 @@ final class ClipboardStoreTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: destinationStorage.agentGuideURL.path))
     }
 
+    func testStoreActionsRecordAnalyticsEvents() throws {
+        let rootURL = temporaryRootURL()
+        defer {
+            try? FileManager.default.removeItem(at: rootURL)
+        }
+
+        let storage = ClipboardStorage(rootURL: rootURL)
+        let itemID = UUID()
+        try storage.saveItems([
+            ClipboardItem(
+                id: itemID,
+                kind: .text,
+                plainText: "Analytics-safe text",
+                fingerprint: "text:analytics"
+            )
+        ])
+
+        let store = ClipboardStore(
+            storage: storage,
+            monitor: PasteboardMonitor(pasteboard: testPasteboard())
+        )
+        let recorder = AnalyticsSpy()
+        store.analyticsRecorder = recorder
+
+        store.rename(itemID: itemID, title: "Renamed for analytics")
+        store.toggleSaved(itemID: itemID)
+        store.delete(itemID: itemID)
+
+        XCTAssertEqual(
+            recorder.events,
+            [
+                .clipAction(.renamed),
+                .clipAction(.favoriteAdded),
+                .clipAction(.deleted)
+            ]
+        )
+    }
+
     private func temporaryRootURL() -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("ClipboardMarkupTests-\(UUID().uuidString)", isDirectory: true)
@@ -170,5 +208,14 @@ final class ClipboardStoreTests: XCTestCase {
         NSBezierPath(rect: CGRect(x: 0, y: 0, width: 12, height: 12)).fill()
         image.unlockFocus()
         return image
+    }
+}
+
+@MainActor
+private final class AnalyticsSpy: AnalyticsRecording {
+    var events: [AnalyticsEventKind] = []
+
+    func record(_ kind: AnalyticsEventKind) {
+        events.append(kind)
     }
 }

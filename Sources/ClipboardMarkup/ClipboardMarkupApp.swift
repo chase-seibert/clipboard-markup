@@ -15,18 +15,30 @@ struct ClipboardMarkupApp: App {
     @StateObject private var appearancePreferences = AppearancePreferences()
     @StateObject private var libraryPreferences = LibraryPreferences()
     @StateObject private var storageLocationPreferences = StorageLocationPreferences()
+    @StateObject private var analyticsPreferences: AnalyticsPreferences
+    @StateObject private var analyticsRecorder: AnalyticsRecorder
+
+    init() {
+        let analyticsPreferences = AnalyticsPreferences()
+        _analyticsPreferences = StateObject(wrappedValue: analyticsPreferences)
+        _analyticsRecorder = StateObject(wrappedValue: AnalyticsRecorder(preferences: analyticsPreferences))
+    }
 
     var body: some Scene {
         WindowGroup("Clipboard Markup", id: "main") {
             ClipboardRootView(
                 store: store,
                 commandRelay: commandRelay,
-                libraryPreferences: libraryPreferences
+                libraryPreferences: libraryPreferences,
+                analyticsRecorder: analyticsRecorder
             )
                 .environment(\.appFontScale, appearancePreferences.fontScale)
                 .environment(\.appThumbnailSize, CGFloat(appearancePreferences.thumbnailSize))
                 .frame(minWidth: 980, minHeight: 640)
                 .onAppear {
+                    store.analyticsRecorder = analyticsRecorder
+                    analyticsRecorder.start()
+                    analyticsRecorder.record(.appWindowOpened)
                     appDelegate.configure(
                         store: store,
                         commandRelay: commandRelay,
@@ -151,7 +163,9 @@ struct ClipboardMarkupApp: App {
                 appearancePreferences: appearancePreferences,
                 store: store,
                 libraryPreferences: libraryPreferences,
-                storageLocationPreferences: storageLocationPreferences
+                storageLocationPreferences: storageLocationPreferences,
+                analyticsPreferences: analyticsPreferences,
+                analyticsRecorder: analyticsRecorder
             )
                 .environment(\.appFontScale, appearancePreferences.fontScale)
         }
@@ -160,7 +174,8 @@ struct ClipboardMarkupApp: App {
             ClipboardMenuBarExtraContent(
                 store: store,
                 commandRelay: commandRelay,
-                libraryPreferences: libraryPreferences
+                libraryPreferences: libraryPreferences,
+                analyticsRecorder: analyticsRecorder
             )
                 .environment(\.appFontScale, appearancePreferences.fontScale)
         }

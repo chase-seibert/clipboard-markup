@@ -8,55 +8,84 @@ public struct SettingsView: View {
     @ObservedObject private var store: ClipboardStore
     @ObservedObject private var libraryPreferences: LibraryPreferences
     @ObservedObject private var storageLocationPreferences: StorageLocationPreferences
+    @ObservedObject private var analyticsPreferences: AnalyticsPreferences
+    @ObservedObject private var analyticsRecorder: AnalyticsRecorder
     @State private var isRecordingShortcut = false
+    @State private var selectedTab = SettingsTab.appearance
 
     public init(
         shortcutPreferences: ShortcutPreferences,
         appearancePreferences: AppearancePreferences,
         store: ClipboardStore,
         libraryPreferences: LibraryPreferences,
-        storageLocationPreferences: StorageLocationPreferences
+        storageLocationPreferences: StorageLocationPreferences,
+        analyticsPreferences: AnalyticsPreferences,
+        analyticsRecorder: AnalyticsRecorder
     ) {
         self.shortcutPreferences = shortcutPreferences
         self.appearancePreferences = appearancePreferences
         self.store = store
         self.libraryPreferences = libraryPreferences
         self.storageLocationPreferences = storageLocationPreferences
+        self.analyticsPreferences = analyticsPreferences
+        self.analyticsRecorder = analyticsRecorder
     }
 
     public var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             appearanceForm
                 .tabItem {
                     Label("Appearance", systemImage: "textformat.size")
                 }
+                .tag(SettingsTab.appearance)
 
             shortcutForm
                 .tabItem {
                     Label("Shortcut", systemImage: "keyboard")
                 }
+                .tag(SettingsTab.shortcut)
 
             StorageLocationSettingsView(
                 store: store,
-                storageLocationPreferences: storageLocationPreferences
+                storageLocationPreferences: storageLocationPreferences,
+                analyticsRecorder: analyticsRecorder
             )
                 .tabItem {
                     Label("Storage Location", systemImage: "folder")
                 }
+                .tag(SettingsTab.storageLocation)
 
             OtherSettingsView(
                 store: store,
                 libraryPreferences: libraryPreferences,
-                storageLocationPreferences: storageLocationPreferences
+                storageLocationPreferences: storageLocationPreferences,
+                analyticsPreferences: analyticsPreferences,
+                analyticsRecorder: analyticsRecorder
             )
                 .tabItem {
                     Label("Other", systemImage: "ellipsis.circle")
                 }
+                .tag(SettingsTab.other)
+
+            if DeveloperMode.isEnabled {
+                DebugSettingsView(analyticsRecorder: analyticsRecorder)
+                    .tabItem {
+                        Label("Debug", systemImage: "ladybug")
+                    }
+                    .tag(SettingsTab.debug)
+            }
         }
         .tint(.blue)
         .padding(18)
         .frame(width: 700, height: 540)
         .onExitCommand(perform: closeSettingsWindow)
+        .onAppear {
+            analyticsRecorder.record(.settingsOpened)
+            analyticsRecorder.record(.settingsSectionOpened(selectedTab.analyticsSection))
+        }
+        .onChange(of: selectedTab) { _, newValue in
+            analyticsRecorder.record(.settingsSectionOpened(newValue.analyticsSection))
+        }
     }
 
     private var appearanceForm: some View {
@@ -193,9 +222,33 @@ public struct SettingsView: View {
     }
 }
 
+private enum SettingsTab: Hashable {
+    case appearance
+    case shortcut
+    case storageLocation
+    case other
+    case debug
+
+    var analyticsSection: AnalyticsSettingsSection {
+        switch self {
+        case .appearance:
+            .appearance
+        case .shortcut:
+            .shortcut
+        case .storageLocation:
+            .storageLocation
+        case .other:
+            .other
+        case .debug:
+            .debug
+        }
+    }
+}
+
 private struct StorageLocationSettingsView: View {
     @ObservedObject var store: ClipboardStore
     @ObservedObject var storageLocationPreferences: StorageLocationPreferences
+    @ObservedObject var analyticsRecorder: AnalyticsRecorder
 
     @State private var pendingStorageMove: PendingStorageMove?
     @State private var storageMigrationError: String?
@@ -234,7 +287,11 @@ private struct StorageLocationSettingsView: View {
                                 preset: preset,
                                 isCurrent: isCurrentStorageLocation(preset.url),
                                 useAction: {
-                                    requestStorageMove(to: preset.url, title: preset.title)
+                                    requestStorageMove(
+                                        to: preset.url,
+                                        title: preset.title,
+                                        provider: AnalyticsStorageProvider(preset: preset.id)
+                                    )
                                 },
                                 openAction: {
                                     openStorageLocation(preset.url)
@@ -317,11 +374,25 @@ private struct StorageLocationSettingsView: View {
     }
 
     private func requestStorageMove(to url: URL, title: String, bookmarkData: Data? = nil) {
+        requestStorageMove(to: url, title: title, bookmarkData: bookmarkData, provider: .custom)
+    }
+
+    private func requestStorageMove(
+        to url: URL,
+        title: String,
+        bookmarkData: Data? = nil,
+        provider: AnalyticsStorageProvider
+    ) {
         let destinationURL = url.standardizedFileURL
         guard !isCurrentStorageLocation(destinationURL) else {
             return
         }
-        pendingStorageMove = PendingStorageMove(title: title, url: destinationURL, bookmarkData: bookmarkData)
+        pendingStorageMove = PendingStorageMove(
+            title: title,
+            url: destinationURL,
+            provider: provider,
+            bookmarkData: bookmarkData
+        )
     }
 
     private func chooseCustomFolder() {
@@ -342,7 +413,8 @@ private struct StorageLocationSettingsView: View {
         requestStorageMove(
             to: url,
             title: "Custom Folder",
-            bookmarkData: StorageLocationPreferences.securityScopedBookmarkData(for: url)
+            bookmarkData: StorageLocationPreferences.securityScopedBookmarkData(for: url),
+            provider: .custom
         )
     }
 
@@ -355,7 +427,7 @@ private struct StorageLocationSettingsView: View {
             }
             NSWorkspace.shared.open(standardizedURL)
         } catch {
-            let move = PendingStorageMove(title: "Storage Location", url: url.standardizedFileURL)
+            let move = PendingStorageMove(title: "Storage Location", url: url.standardizedFileURL, provider: .custom)
             if let approvedMove = requestStoragePermission(for: move) {
                 openStorageLocation(approvedMove.url)
             } else {
@@ -392,6 +464,7 @@ private struct StorageLocationSettingsView: View {
 
         storageLocationPreferences.setRootURL(move.url, bookmarkData: move.bookmarkData)
         try? ClipboardStorage(rootURL: move.url).ensureAgentGuide()
+        analyticsRecorder.record(.storageLocationChanged(move.provider))
         return true
     }
 
@@ -412,6 +485,7 @@ private struct StorageLocationSettingsView: View {
         return PendingStorageMove(
             title: move.title,
             url: standardizedURL,
+            provider: move.provider,
             bookmarkData: StorageLocationPreferences.securityScopedBookmarkData(for: standardizedURL)
         )
     }
@@ -437,6 +511,8 @@ private struct OtherSettingsView: View {
     @ObservedObject var store: ClipboardStore
     @ObservedObject var libraryPreferences: LibraryPreferences
     @ObservedObject var storageLocationPreferences: StorageLocationPreferences
+    @ObservedObject var analyticsPreferences: AnalyticsPreferences
+    @ObservedObject var analyticsRecorder: AnalyticsRecorder
 
     @State private var didCopyPrompt = false
     @State private var isConfirmingClearHistory = false
@@ -447,6 +523,31 @@ private struct OtherSettingsView: View {
 
     var body: some View {
         Form {
+            Section {
+                VStack(alignment: .leading, spacing: 10) {
+                    Toggle(
+                        "Share privacy-safe usage analytics",
+                        isOn: Binding(
+                            get: { analyticsPreferences.isSharingEnabled },
+                            set: { analyticsRecorder.setSharingEnabled($0) }
+                        )
+                    )
+                    .appFont(size: 13)
+
+                    Label(analyticsRecorder.status.displayText, systemImage: analyticsStatusSystemImage)
+                        .appFont(size: 12)
+                        .foregroundStyle(.secondary)
+
+                    Text("Analytics helps understand whether people are using Clipboard Markup and which features are useful. It never includes clipboard contents, OCR text, clip titles, search queries, file paths, media filenames, or password-manager contents.")
+                        .appFont(size: 12)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } header: {
+                Text("Usage Analytics")
+                    .appFont(size: 12, weight: .semibold)
+            }
+
             Section {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(storage.agentPromptSnippet)
@@ -528,12 +629,366 @@ private struct OtherSettingsView: View {
             libraryPreferences.setSelectedItemID(nil)
         }
     }
+
+    private var analyticsStatusSystemImage: String {
+        switch analyticsRecorder.status {
+        case .enabled:
+            "checkmark.circle.fill"
+        case .disabled:
+            "pause.circle"
+        case .missingConfiguration, .configurationError:
+            "exclamationmark.triangle.fill"
+        case .paused:
+            "clock"
+        case .stoppedByServer:
+            "stop.circle"
+        }
+    }
+}
+
+private struct DebugSettingsView: View {
+    @ObservedObject var analyticsRecorder: AnalyticsRecorder
+
+    @State private var snapshot: AnalyticsDebugSnapshot
+    @State private var lastRefreshedAt = Date()
+
+    init(analyticsRecorder: AnalyticsRecorder) {
+        self.analyticsRecorder = analyticsRecorder
+        _snapshot = State(initialValue: analyticsRecorder.makeDebugSnapshot())
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 10) {
+                        Label(snapshot.status.displayText, systemImage: statusSystemImage)
+                            .appFont(size: 13, weight: .medium)
+
+                        Spacer()
+
+                        Button {
+                            analyticsRecorder.flushSoon()
+                            refresh()
+                        } label: {
+                            Label("Flush Now", systemImage: "arrow.clockwise")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.blue)
+                        .controlSize(.small)
+
+                        Button {
+                            refresh()
+                        } label: {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .help("Refresh analytics debug status")
+                        .accessibilityLabel("Refresh analytics debug status")
+                    }
+
+                    DebugFieldGrid {
+                        DebugField(label: "Sharing", value: snapshot.isSharingEnabled ? "On" : "Off")
+                        DebugField(label: "Server control", value: snapshot.isStoppedByServer ? "Stopped" : "Active")
+                        DebugField(label: "Install ID", value: snapshot.installID)
+                        DebugField(label: "Session ID", value: snapshot.sessionID)
+                        DebugField(label: "Refreshed", value: DateFormatting.absolute.string(from: lastRefreshedAt))
+                    }
+                }
+            } header: {
+                Text("Analytics Status")
+                    .appFont(size: 12, weight: .semibold)
+            }
+
+            Section {
+                DebugFieldGrid {
+                    DebugField(label: "Config", value: snapshot.configuration.statusText)
+                    DebugField(label: "Audience", value: snapshot.configuration.audience?.rawValue ?? "none")
+                    DebugField(label: "Namespace", value: snapshot.configuration.namespace ?? "none")
+                    DebugField(label: "Key ID", value: snapshot.configuration.keyID ?? "none")
+                    DebugField(label: "App", value: appSummary)
+                    DebugField(label: "Base URL", value: snapshot.configuration.baseURLString ?? "none", isMonospaced: true)
+                    if let redirectedBaseURLString = snapshot.configuration.redirectedBaseURLString {
+                        DebugField(label: "Redirect", value: redirectedBaseURLString, isMonospaced: true)
+                    }
+                }
+            } header: {
+                Text("Configuration")
+                    .appFont(size: 12, weight: .semibold)
+            }
+
+            Section {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 8) {
+                        DebugCountPill(
+                            title: "Synced",
+                            value: "\(snapshot.queue.successfullySyncedEventCount)",
+                            systemImage: "checkmark.circle.fill",
+                            tint: .green
+                        )
+                        DebugCountPill(
+                            title: "Total",
+                            value: "\(snapshot.queue.totalEventCount)",
+                            systemImage: "sum",
+                            tint: .blue
+                        )
+                        DebugCountPill(
+                            title: "Pending",
+                            value: "\(snapshot.queue.queuedEventCount)",
+                            systemImage: "clock",
+                            tint: .secondary
+                        )
+                    }
+
+                    DebugFieldGrid {
+                        DebugField(label: "Queued events", value: "\(snapshot.queue.queuedEventCount)")
+                        DebugField(label: "Prepared batch", value: snapshot.queue.preparedBatchID.map(shortID) ?? "none")
+                        DebugField(label: "Prepared events", value: "\(snapshot.queue.preparedBatchEventCount)")
+                        DebugField(label: "Compressed bytes", value: snapshot.queue.preparedBatchCompressedBytes.map(String.init) ?? "none")
+                        DebugField(label: "Retry attempt", value: "\(snapshot.queue.retryAttempt)")
+                        DebugField(label: "Next retry", value: snapshot.queue.nextRetryAt.map(DateFormatting.absolute.string(from:)) ?? "none")
+                        DebugField(label: "Queue file", value: snapshot.queue.statePath, isMonospaced: true)
+                    }
+                }
+            } header: {
+                Text("Queue")
+                    .appFont(size: 12, weight: .semibold)
+            }
+
+            Section {
+                if snapshot.queue.recentQueuedEvents.isEmpty {
+                    Text("No queued analytics events.")
+                        .appFont(size: 12)
+                        .foregroundStyle(.secondary)
+                } else {
+                    VStack(spacing: 8) {
+                        ForEach(snapshot.queue.recentQueuedEvents) { event in
+                            AnalyticsDebugEventRow(event: event)
+                        }
+                    }
+                }
+            } header: {
+                Text("Queued Events")
+                    .appFont(size: 12, weight: .semibold)
+            }
+
+            Section {
+                if snapshot.queue.recentSyncedBatches.isEmpty {
+                    Text("No synced analytics batches yet.")
+                        .appFont(size: 12)
+                        .foregroundStyle(.secondary)
+                } else {
+                    VStack(spacing: 8) {
+                        ForEach(snapshot.queue.recentSyncedBatches) { batch in
+                            AnalyticsSyncedBatchRow(batch: batch)
+                        }
+                    }
+                }
+            } header: {
+                Text("Synced Batches")
+                    .appFont(size: 12, weight: .semibold)
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var statusSystemImage: String {
+        switch snapshot.status {
+        case .enabled:
+            "checkmark.circle.fill"
+        case .disabled:
+            "pause.circle"
+        case .missingConfiguration, .configurationError:
+            "exclamationmark.triangle.fill"
+        case .paused:
+            "clock"
+        case .stoppedByServer:
+            "stop.circle"
+        }
+    }
+
+    private var appSummary: String {
+        [
+            snapshot.configuration.appName,
+            snapshot.configuration.appVersion,
+            snapshot.configuration.platform
+        ]
+        .compactMap { $0 }
+        .joined(separator: " / ")
+    }
+
+    private func refresh() {
+        snapshot = analyticsRecorder.makeDebugSnapshot()
+        lastRefreshedAt = Date()
+    }
+
+    private func shortID(_ id: String) -> String {
+        guard id.count > 10 else {
+            return id
+        }
+        return "\(id.prefix(8))..."
+    }
+}
+
+private struct DebugFieldGrid<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 7) {
+            content
+        }
+    }
+}
+
+private struct DebugField: View {
+    let label: String
+    let value: String
+    var isMonospaced = false
+
+    var body: some View {
+        GridRow {
+            Text(label)
+                .appFont(size: 12, weight: .medium)
+                .foregroundStyle(.secondary)
+                .frame(width: 112, alignment: .leading)
+
+            Text(value)
+                .appFont(size: 12, design: isMonospaced ? .monospaced : .default)
+                .lineLimit(2)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
+                .help(value)
+        }
+    }
+}
+
+private struct DebugCountPill: View {
+    let title: String
+    let value: String
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: systemImage)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(tint)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(value)
+                    .appFont(size: 14, weight: .semibold, design: .monospaced)
+                    .foregroundStyle(tint)
+                Text(title)
+                    .appFont(size: 10.5, weight: .medium)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 7)
+        .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 7))
+        .overlay {
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(tint.opacity(0.20), lineWidth: 1)
+        }
+    }
+}
+
+private struct AnalyticsDebugEventRow: View {
+    let event: AnalyticsDebugEvent
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(event.type)
+                    .appFont(size: 12.5, weight: .semibold, design: .monospaced)
+                Text(metadata)
+                    .appFont(size: 11)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            if let value = event.value {
+                Text(value)
+                    .appFont(size: 11, weight: .medium, design: .monospaced)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.secondary.opacity(0.10), in: RoundedRectangle(cornerRadius: 4))
+            }
+        }
+        .padding(8)
+        .background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 7))
+        .overlay {
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(Color.secondary.opacity(0.10), lineWidth: 1)
+        }
+    }
+
+    private var metadata: String {
+        "\(event.audience.rawValue)  Enqueued \(DateFormatting.relativeDisplay(for: event.enqueuedAt))"
+    }
+}
+
+private struct AnalyticsSyncedBatchRow: View {
+    let batch: AnalyticsDebugSyncedBatch
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .firstTextBaseline) {
+                Label {
+                    Text(shortID(batch.batchId))
+                        .appFont(size: 12.5, weight: .semibold, design: .monospaced)
+                } icon: {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                }
+
+                Spacer()
+
+                Text(DateFormatting.relativeDisplay(for: batch.uploadedAt))
+                    .appFont(size: 11)
+                    .foregroundStyle(.green)
+            }
+
+            Text("\(batch.eventCount) events / \(batch.compressedByteCount) compressed bytes / \(batch.audience.rawValue)")
+                .appFont(size: 11)
+                .foregroundStyle(.secondary)
+
+            Text(batch.eventTypes.isEmpty ? "No event type details" : batch.eventTypes.joined(separator: ", "))
+                .appFont(size: 11, design: .monospaced)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
+        }
+        .padding(8)
+        .background(Color.green.opacity(0.08), in: RoundedRectangle(cornerRadius: 7))
+        .overlay {
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(Color.green.opacity(0.22), lineWidth: 1)
+        }
+    }
+
+    private func shortID(_ id: String) -> String {
+        guard id.count > 10 else {
+            return id
+        }
+        return "\(id.prefix(8))..."
+    }
 }
 
 private struct PendingStorageMove: Identifiable {
     let id = UUID()
     let title: String
     let url: URL
+    let provider: AnalyticsStorageProvider
     var bookmarkData: Data?
 }
 

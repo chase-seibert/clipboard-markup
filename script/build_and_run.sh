@@ -6,6 +6,8 @@ APP_NAME="ClipboardMarkup"
 BUNDLE_NAME="Clipboard Markup"
 BUNDLE_ID="com.chaseseibert.ClipboardMarkup"
 MIN_SYSTEM_VERSION="14.0"
+APP_VERSION="0.1.0"
+APP_BUILD="1"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
@@ -16,6 +18,7 @@ APP_RESOURCES="$APP_CONTENTS/Resources"
 APP_BINARY="$APP_MACOS/$APP_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 ICON_FILE="$ROOT_DIR/Resources/AppIcon.icns"
+ANALYTICS_CONFIG_FILE="$ROOT_DIR/Config/AnalyticsConfig.plist"
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
@@ -31,6 +34,10 @@ if [[ -f "$ICON_FILE" ]]; then
   cp "$ICON_FILE" "$APP_RESOURCES/AppIcon.icns"
 fi
 
+if [[ -f "$ANALYTICS_CONFIG_FILE" ]]; then
+  cp "$ANALYTICS_CONFIG_FILE" "$APP_RESOURCES/AnalyticsConfig.plist"
+fi
+
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -44,6 +51,10 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$BUNDLE_NAME</string>
   <key>CFBundleDisplayName</key>
   <string>$BUNDLE_NAME</string>
+  <key>CFBundleShortVersionString</key>
+  <string>$APP_VERSION</string>
+  <key>CFBundleVersion</key>
+  <string>$APP_BUILD</string>
   <key>CFBundleIconFile</key>
   <string>AppIcon</string>
   <key>CFBundlePackageType</key>

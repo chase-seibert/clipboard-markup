@@ -8,15 +8,18 @@ public struct ClipboardMenuBarExtraContent: View {
     @ObservedObject private var store: ClipboardStore
     @ObservedObject private var commandRelay: AppCommandRelay
     @ObservedObject private var libraryPreferences: LibraryPreferences
+    private let analyticsRecorder: AnalyticsRecorder
 
     public init(
         store: ClipboardStore,
         commandRelay: AppCommandRelay,
-        libraryPreferences: LibraryPreferences
+        libraryPreferences: LibraryPreferences,
+        analyticsRecorder: AnalyticsRecorder
     ) {
         self.store = store
         self.commandRelay = commandRelay
         self.libraryPreferences = libraryPreferences
+        self.analyticsRecorder = analyticsRecorder
     }
 
     public var body: some View {
@@ -40,6 +43,9 @@ public struct ClipboardMenuBarExtraContent: View {
             footer
         }
         .frame(width: 380)
+        .onAppear {
+            analyticsRecorder.record(.appMenuBarOpened)
+        }
     }
 
     private var recentItems: [ClipboardItem] {
@@ -84,6 +90,7 @@ public struct ClipboardMenuBarExtraContent: View {
         }
 
         selectInMainWindow(item)
+        analyticsRecorder.record(.clipAction(.markupOpened))
         commandRelay.markupSelectedClip()
         dismiss()
     }

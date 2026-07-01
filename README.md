@@ -24,6 +24,7 @@ The app polls the macOS pasteboard, records new clipboard contents locally, and 
 - Menu bar icon with recent clipboard items and quick access to the app.
 - User-facing text scaling with `Command` + `+`, `Command` + `-`, and `Command` + `0`.
 - Local persistence under Application Support using a manifest plus media files, with a generated `AGENTS.md`, Finder access, a Settings prompt snippet for LLM-assisted inspection, and a Settings data reset.
+- Privacy-safe usage analytics with a Settings opt-out, local durable retry queue, and no clipboard contents, OCR text, clip titles, search queries, file paths, media filenames, or password-manager contents in event payloads.
 
 ## Commands
 

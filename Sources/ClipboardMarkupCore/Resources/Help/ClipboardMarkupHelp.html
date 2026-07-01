@@ -51,7 +51,11 @@
   <h2>Data Storage</h2>
   <p>Clipboard history is stored as an <code>entries.json</code> manifest plus media files. By default this lives in Application Support. The Storage Location tab in Settings can move it to iCloud Drive, Dropbox, Google Drive, or a custom folder for cloud-provider syncing, and the Other tab includes the agent prompt snippet.</p>
 
+  <h2>Usage Analytics</h2>
+  <p>The Other tab in Settings includes a privacy-safe usage analytics toggle. Analytics can report app/session activity, clip types, major feature actions, filters, search usage, settings sections, and storage-provider categories.</p>
+  <p>Analytics configuration is supplied by a local <code>AnalyticsConfig.plist</code>. Events are uploaded as signed gzipped batches and retried from a local Application Support queue when the network or server is unavailable.</p>
+
   <h2>Privacy</h2>
-  <p>Clipboard Markup stores data locally. It skips common password-manager clipboard payloads where possible and keeps your current system clipboard separate from the app history clear action.</p>
+  <p>Clipboard Markup stores clipboard data locally. It skips common password-manager clipboard payloads where possible and keeps your current system clipboard separate from the app history clear action. Analytics never includes clipboard contents, OCR text, clip titles, search queries, file paths, media filenames, or password-manager contents.</p>
 </body>
 </html>

@@ -15,6 +15,18 @@ make run
 
 `make run` builds the SwiftPM executable, stages `dist/ClipboardMarkup.app`, and launches the app bundle with normal foreground activation.
 
+## Analytics Config
+
+Usage analytics are privacy-safe and can be disabled from Settings > Other. To enable uploads in a local build, copy `Config/AnalyticsConfig.example.plist` to `Config/AnalyticsConfig.plist` and replace the endpoint, key id, secret, and audience. The real config file is gitignored and is copied into the staged app bundle only when present.
+
+The app also checks for an Application Support override at `~/Library/Application Support/ClipboardMarkup/AnalyticsConfig.plist`, then falls back to environment variables named `CLIPBOARD_MARKUP_ANALYTICS_BASE_URL`, `CLIPBOARD_MARKUP_ANALYTICS_KEY_ID`, `CLIPBOARD_MARKUP_ANALYTICS_SECRET`, and `CLIPBOARD_MARKUP_ANALYTICS_AUDIENCE`.
+
+Analytics events never include clipboard contents, OCR text, clip titles, search queries, file paths, media filenames, or password-manager contents. The durable analytics queue lives locally under Application Support and is separate from the movable clipboard-history data directory.
+
+## Developer Diagnostics
+
+Debug builds show a Settings > Debug tab with analytics status, configuration metadata, queued events, retry state, and recently synced batches. Release builds can show the same tab for local troubleshooting by setting `CLIPBOARD_MARKUP_DEVELOPER_MODE=1` before launch or by enabling the `ClipboardMarkupDeveloperModeEnabled` user default.
+
 ## Verification
 
 ```sh
@@ -38,6 +50,6 @@ The app persists the current sidebar filter and selected clip between launches. 
 
 Select a history entry and press Delete/Backspace while the list is focused to move it to Deleted Items. The detail header also has a trash icon for deleting the selected entry. Deleted Items rows and details expose Restore; deleted entries are permanently purged after 30 days.
 
-Settings includes Storage Location and Other tabs. By default, the app writes an `AGENTS.md` guide into `~/Library/Application Support/ClipboardMarkup`. Storage Location shows each available data directory option with an Open in Finder button and can migrate the data directory to iCloud Drive, Dropbox, Google Drive, or any custom folder; this copies `entries.json`, `AGENTS.md`, and the media directory to the selected location and uses that folder for future captures. If macOS denies write access to a provider folder, the app asks you to allow access and retries the migration. Other provides a copyable prompt snippet that points agents at the generated guide and includes a confirmed Clear Clipboard History action that permanently deletes captured history and media while leaving app preferences and the current system clipboard unchanged.
+Settings includes Storage Location and Other tabs. By default, the app writes an `AGENTS.md` guide into `~/Library/Application Support/ClipboardMarkup`. Storage Location shows each available data directory option with an Open in Finder button and can migrate the data directory to iCloud Drive, Dropbox, Google Drive, or any custom folder; this copies `entries.json`, `AGENTS.md`, and the media directory to the selected location and uses that folder for future captures. If macOS denies write access to a provider folder, the app asks you to allow access and retries the migration. Other provides the usage analytics opt-out, a copyable prompt snippet that points agents at the generated guide, and a confirmed Clear Clipboard History action that permanently deletes captured history and media while leaving app preferences, analytics queue state, and the current system clipboard unchanged.
 
 New clipboard captures are selected automatically. If the current filter or search would hide the new capture, the app switches to the matching item-kind filter and clears search.

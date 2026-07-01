@@ -18,6 +18,7 @@ public final class ClipboardStore: ObservableObject {
 
     @Published public private(set) var items: [ClipboardItem] = []
     @Published public private(set) var lastError: String?
+    public weak var analyticsRecorder: AnalyticsRecording?
 
     private var storage: ClipboardStorage
     private let monitor: PasteboardMonitor
@@ -149,6 +150,7 @@ public final class ClipboardStore: ObservableObject {
         items[index].isSaved = isSaved
         items[index].updatedAt = Date()
         persist()
+        analyticsRecorder?.record(.clipAction(isSaved ? .favoriteAdded : .favoriteRemoved))
 
         undoManager?.registerUndo(withTarget: self) { store in
             store.setSaved(itemID: itemID, isSaved: previousValue, undoManager: undoManager)
@@ -170,6 +172,7 @@ public final class ClipboardStore: ObservableObject {
         items[index].customTitle = normalizedTitle
         items[index].updatedAt = Date()
         persist()
+        analyticsRecorder?.record(.clipAction(.renamed))
 
         undoManager?.registerUndo(withTarget: self) { store in
             store.rename(itemID: itemID, title: previousTitle ?? "", undoManager: undoManager)
@@ -216,6 +219,7 @@ public final class ClipboardStore: ObservableObject {
         }
 
         persist()
+        analyticsRecorder?.record(.clipAction(deletedAt == nil ? .restored : .deleted))
 
         undoManager?.registerUndo(withTarget: self) { store in
             store.setDeletedAt(itemID: itemID, deletedAt: previousDeletedAt, undoManager: undoManager)
@@ -230,13 +234,17 @@ public final class ClipboardStore: ObservableObject {
 
         switch item.kind {
         case .text:
-            copyText(itemID: itemID, variant: item.hasRichText ? .rich : .plain)
+            copyText(itemID: itemID, variant: item.hasRichText ? .rich : .plain, analyticsAction: .copy)
         case .image:
             copyImage(itemID: itemID, variant: .preferred)
         }
     }
 
-    public func copyText(itemID: ClipboardItem.ID, variant: TextCopyVariant) {
+    public func copyText(
+        itemID: ClipboardItem.ID,
+        variant: TextCopyVariant,
+        analyticsAction: AnalyticsClipAction? = nil
+    ) {
         guard let item = item(id: itemID), !item.isDeleted, item.kind == .text else {
             return
         }
@@ -260,6 +268,7 @@ public final class ClipboardStore: ObservableObject {
         }
 
         monitor.acceptCurrentChangeCount()
+        analyticsRecorder?.record(.clipAction(analyticsAction ?? (variant == .plain ? .copyPlainText : .copy)))
     }
 
     public func copyImage(itemID: ClipboardItem.ID, variant: ImageVariant) {
@@ -282,6 +291,7 @@ public final class ClipboardStore: ObservableObject {
         }
         pasteboard.writeObjects([image])
         monitor.acceptCurrentChangeCount()
+        analyticsRecorder?.record(.clipAction(variant == .original ? .copyOriginalImage : .copy))
     }
 
     public func image(for item: ClipboardItem, variant: ImageVariant) -> NSImage? {
@@ -342,6 +352,7 @@ public final class ClipboardStore: ObservableObject {
             }
             items[index].updatedAt = Date()
             persist()
+            analyticsRecorder?.record(.clipAction(.markupSaved))
 
             undoManager?.registerUndo(withTarget: self) { store in
                 store.updateMarkups(itemID: itemID, elements: previousElements, undoManager: undoManager)
@@ -393,6 +404,7 @@ public final class ClipboardStore: ObservableObject {
         case .originalImage:
             try writeImageExport(item: item, variant: .original, to: url)
         }
+        analyticsRecorder?.record(.clipAction(.exported))
     }
 
     public func sharingItems(itemID: ClipboardItem.ID) -> [Any] {
@@ -402,9 +414,17 @@ public final class ClipboardStore: ObservableObject {
 
         switch item.kind {
         case .text:
-            return item.plainText.map { [$0] } ?? []
+            let items = item.plainText.map { [$0] } ?? []
+            if !items.isEmpty {
+                analyticsRecorder?.record(.clipAction(.shared))
+            }
+            return items
         case .image:
-            return imageURL(for: item, variant: .preferred).map { [$0] } ?? []
+            let items = imageURL(for: item, variant: .preferred).map { [$0] } ?? []
+            if !items.isEmpty {
+                analyticsRecorder?.record(.clipAction(.shared))
+            }
+            return items
         }
     }
 
@@ -472,6 +492,7 @@ public final class ClipboardStore: ObservableObject {
             return
         }
         QuickLookService.shared.preview(url: url)
+        analyticsRecorder?.record(.clipAction(.quickLook))
     }
 
     private func record(_ capture: ClipboardCapture) {
@@ -512,6 +533,7 @@ public final class ClipboardStore: ObservableObject {
 
             items.insert(item, at: 0)
             persist()
+            analyticsRecorder?.record(.clipCaptured(capture.analyticsKind))
 
             if item.kind == .image {
                 scheduleTranscription(for: item)

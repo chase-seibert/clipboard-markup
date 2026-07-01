@@ -6,6 +6,7 @@ struct ClipboardDetailView: View {
 
     @ObservedObject var store: ClipboardStore
     @ObservedObject var commandRelay: AppCommandRelay
+    let analyticsRecorder: AnalyticsRecorder
     let item: ClipboardItem
     let onDelete: () -> Void
     let onRestore: () -> Void
@@ -26,7 +27,13 @@ struct ClipboardDetailView: View {
                     if item.isDeleted {
                         DeletedItemNotice(item: item, onRestore: onRestore)
                     } else {
-                        DetailActionBar(store: store, item: item, isEditingMarkup: $isEditingMarkup)
+                        DetailActionBar(
+                            store: store,
+                            item: item,
+                            isEditingMarkup: $isEditingMarkup
+                        ) {
+                            analyticsRecorder.record(.clipAction(.markupOpened))
+                        }
                     }
 
                     Divider()
@@ -80,6 +87,7 @@ struct ClipboardDetailView: View {
         }
 
         isEditingMarkup = true
+        analyticsRecorder.record(.clipAction(.markupOpened))
     }
 }
 
@@ -340,6 +348,7 @@ private struct DetailActionBar: View {
     @ObservedObject var store: ClipboardStore
     let item: ClipboardItem
     @Binding var isEditingMarkup: Bool
+    let onMarkupOpened: () -> Void
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -386,6 +395,7 @@ private struct DetailActionBar: View {
             }
 
             ActionButton(title: "Markup", systemImage: "square.and.pencil", shortcut: "⌘E") {
+                onMarkupOpened()
                 isEditingMarkup = true
             }
 
