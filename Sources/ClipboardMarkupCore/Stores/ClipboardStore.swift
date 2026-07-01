@@ -425,16 +425,6 @@ public final class ClipboardStore: ObservableObject {
         }
     }
 
-    public func openInPreview(itemID: ClipboardItem.ID, variant: ImageVariant) {
-        guard let item = item(id: itemID),
-              !item.isDeleted,
-              let url = imageURL(for: item, variant: variant)
-        else {
-            return
-        }
-        PreviewService.open(url: url)
-    }
-
     public func quickLook(itemID: ClipboardItem.ID, variant: ImageVariant) {
         guard let item = item(id: itemID),
               !item.isDeleted,

@@ -9,6 +9,7 @@ public final class AppCommandRelay: ObservableObject {
 
     public var showWindowHandler: (() -> Void)?
     private var handledSearchRequestID = 0
+    private var handledMarkupRequestID = 0
 
     public init() {}
 
@@ -37,6 +38,15 @@ public final class AppCommandRelay: ObservableObject {
         }
 
         handledSearchRequestID = searchRequestID
+        return true
+    }
+
+    public func consumeMarkupRequestIfNeeded() -> Bool {
+        guard markupRequestID > handledMarkupRequestID else {
+            return false
+        }
+
+        handledMarkupRequestID = markupRequestID
         return true
     }
 }

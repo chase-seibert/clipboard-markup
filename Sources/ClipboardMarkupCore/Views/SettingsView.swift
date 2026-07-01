@@ -46,6 +46,7 @@ public struct SettingsView: View {
         .tint(.blue)
         .padding(18)
         .frame(width: 620, height: 540)
+        .onExitCommand(perform: closeSettingsWindow)
     }
 
     private var appearanceForm: some View {
@@ -175,6 +176,10 @@ public struct SettingsView: View {
             },
             set: { shortcutPreferences.setShortcut($0) }
         )
+    }
+
+    private func closeSettingsWindow() {
+        NSApp.keyWindow?.performClose(nil)
     }
 }
 

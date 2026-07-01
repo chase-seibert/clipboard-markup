@@ -31,6 +31,7 @@ public struct ClipboardRootView: View {
                 searchFocusRequestID: searchFocusRequestID,
                 items: displayedItems,
                 onRenameSelection: commandRelay.renameSelectedClip,
+                onQuickLookSelection: quickLookSelectedItem,
                 onDeleteSelection: deleteSelectedItem,
                 onDeleteItem: deleteItem,
                 onRestoreItem: restoreItem
@@ -96,8 +97,7 @@ public struct ClipboardRootView: View {
             copy: copySelectedItem,
             copyAlternate: copyAlternateSelectedItem,
             markup: commandRelay.markupSelectedClip,
-            preview: previewSelectedItem,
-            quickLook: quickLookSelectedItem,
+            quickLook: { _ = quickLookSelectedItem() },
             rename: commandRelay.renameSelectedClip,
             toggleFavorite: toggleFavoriteSelectedItem,
             delete: deleteSelectedItem,
@@ -200,20 +200,14 @@ public struct ClipboardRootView: View {
         }
     }
 
-    private func previewSelectedItem() {
+    @discardableResult
+    private func quickLookSelectedItem() -> Bool {
         guard let selectedItem, selectedItem.kind == .image else {
-            return
-        }
-
-        store.openInPreview(itemID: selectedItem.id, variant: .preferred)
-    }
-
-    private func quickLookSelectedItem() {
-        guard let selectedItem, selectedItem.kind == .image else {
-            return
+            return false
         }
 
         store.quickLook(itemID: selectedItem.id, variant: .preferred)
+        return true
     }
 
     private func toggleFavoriteSelectedItem() {
@@ -235,6 +229,7 @@ private struct SidebarView: View {
     let searchFocusRequestID: Int
     let items: [ClipboardItem]
     let onRenameSelection: () -> Void
+    let onQuickLookSelection: () -> Bool
     let onDeleteSelection: () -> Void
     let onDeleteItem: (ClipboardItem.ID) -> Void
     let onRestoreItem: (ClipboardItem.ID) -> Void
@@ -318,6 +313,9 @@ private struct SidebarView: View {
                 .onKeyPress(.return) {
                     onRenameSelection()
                     return .handled
+                }
+                .onKeyPress(.space) {
+                    onQuickLookSelection() ? .handled : .ignored
                 }
                 .onKeyPress(.delete) {
                     onDeleteSelection()
@@ -499,9 +497,7 @@ private struct ExpandingSearchField: View {
 
                 if !draftText.isEmpty || !text.isEmpty {
                     Button {
-                        draftText = ""
-                        text = ""
-                        isFocused = true
+                        clearAndCollapse()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.secondary)
@@ -524,6 +520,7 @@ private struct ExpandingSearchField: View {
         .clipped()
         .animation(searchAnimation, value: showsField)
         .frame(maxWidth: .infinity, alignment: .trailing)
+        .onExitCommand(perform: clearAndCollapse)
         .onAppear {
             draftText = text
             isPresented = showsField
@@ -563,6 +560,17 @@ private struct ExpandingSearchField: View {
 
         DispatchQueue.main.async {
             isFocused = true
+        }
+    }
+
+    private func clearAndCollapse() {
+        draftText = ""
+        text = ""
+        isFocused = false
+
+        withAnimation(searchAnimation) {
+            isExpanded = false
+            isPresented = false
         }
     }
 

@@ -12,35 +12,37 @@ struct ClipboardDetailView: View {
     @State private var isEditingMarkup = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                DetailHeader(
-                    store: store,
-                    item: item,
-                    renameRequestID: commandRelay.renameRequestID,
-                    onDelete: onDelete,
-                    onRestore: onRestore
-                )
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    DetailHeader(
+                        store: store,
+                        item: item,
+                        renameRequestID: commandRelay.renameRequestID,
+                        onDelete: onDelete,
+                        onRestore: onRestore
+                    )
 
-                if item.isDeleted {
-                    DeletedItemNotice(item: item, onRestore: onRestore)
-                } else {
-                    DetailActionBar(store: store, item: item, isEditingMarkup: $isEditingMarkup)
+                    if item.isDeleted {
+                        DeletedItemNotice(item: item, onRestore: onRestore)
+                    } else {
+                        DetailActionBar(store: store, item: item, isEditingMarkup: $isEditingMarkup)
+                    }
+
+                    Divider()
+
+                    switch item.kind {
+                    case .text:
+                        TextDetailView(store: store, item: item)
+                    case .image:
+                        ImageDetailView(store: store, item: item, viewportHeight: geometry.size.height)
+                    }
                 }
-
-                Divider()
-
-                switch item.kind {
-                case .text:
-                    TextDetailView(store: store, item: item)
-                case .image:
-                    ImageDetailView(store: store, item: item)
-                }
+                .padding(.horizontal, 26)
+                .padding(.top, 24)
+                .padding(.bottom, 28)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 26)
-            .padding(.top, 24)
-            .padding(.bottom, 28)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .sheet(isPresented: $isEditingMarkup) {
             if let original = store.image(for: item, variant: .original) {
@@ -62,11 +64,22 @@ struct ClipboardDetailView: View {
             }
         }
         .onChange(of: commandRelay.markupRequestID) { _, _ in
-            guard item.kind == .image, !item.isDeleted else {
-                return
-            }
-            isEditingMarkup = true
+            handleMarkupRequestIfNeeded()
         }
+        .onAppear {
+            handleMarkupRequestIfNeeded()
+        }
+    }
+
+    private func handleMarkupRequestIfNeeded() {
+        guard item.kind == .image,
+              !item.isDeleted,
+              commandRelay.consumeMarkupRequestIfNeeded()
+        else {
+            return
+        }
+
+        isEditingMarkup = true
     }
 }
 
@@ -376,10 +389,6 @@ private struct DetailActionBar: View {
                 isEditingMarkup = true
             }
 
-            ActionButton(title: "Preview", systemImage: "macwindow", shortcut: "⇧⌘O") {
-                store.openInPreview(itemID: item.id, variant: .preferred)
-            }
-
             ActionButton(title: "Quick Look", systemImage: "eye", shortcut: "Space") {
                 store.quickLook(itemID: item.id, variant: .preferred)
             }
@@ -493,12 +502,17 @@ private struct TextDetailView: View {
 private struct ImageDetailView: View {
     @ObservedObject var store: ClipboardStore
     let item: ClipboardItem
+    let viewportHeight: CGFloat
+
+    private let verticalChromeHeight: CGFloat = 190
+    private let minimumPreviewHeight: CGFloat = 500
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if let image = store.image(for: item, variant: .preferred) {
                 ScreenshotPreviewSurface(image: image)
-                    .frame(maxWidth: .infinity, minHeight: 500, maxHeight: 620)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: previewHeight)
                     .onDrag {
                         store.itemProvider(itemID: item.id) ?? NSItemProvider()
                     }
@@ -506,6 +520,10 @@ private struct ImageDetailView: View {
                 ContentUnavailableView("Image Missing", systemImage: "exclamationmark.triangle")
             }
         }
+    }
+
+    private var previewHeight: CGFloat {
+        max(minimumPreviewHeight, viewportHeight - verticalChromeHeight)
     }
 }
 
@@ -547,20 +565,17 @@ private struct ScreenshotPreviewSurface: View {
     }
 }
 
-private func fittedImageRect(imageSize: CGSize, containerSize: CGSize) -> CGRect {
+func fittedImageRect(imageSize: CGSize, containerSize: CGSize) -> CGRect {
     guard imageSize.width > 0, imageSize.height > 0, containerSize.width > 0, containerSize.height > 0 else {
         return .zero
     }
 
-    let imageAspect = imageSize.width / imageSize.height
-    let containerAspect = containerSize.width / containerSize.height
-    let size: CGSize
-
-    if imageAspect > containerAspect {
-        size = CGSize(width: containerSize.width, height: containerSize.width / imageAspect)
-    } else {
-        size = CGSize(width: containerSize.height * imageAspect, height: containerSize.height)
-    }
+    let scale = min(
+        containerSize.width / imageSize.width,
+        containerSize.height / imageSize.height,
+        1
+    )
+    let size = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
 
     return CGRect(
         x: (containerSize.width - size.width) / 2,

@@ -77,12 +77,6 @@ struct ClipboardMarkupApp: App {
                 .keyboardShortcut("e", modifiers: [.command])
                 .disabled(!commandState.canMarkup)
 
-                Button("Open in Preview") {
-                    previewSelectedClip()
-                }
-                .keyboardShortcut("o", modifiers: [.command, .shift])
-                .disabled(!commandState.canPreview)
-
                 Button("Quick Look") {
                     quickLookSelectedClip()
                 }
@@ -91,7 +85,7 @@ struct ClipboardMarkupApp: App {
 
                 Divider()
 
-                Button("Rename") {
+                Button("Rename (Return)") {
                     renameSelectedClip()
                 }
                 .disabled(!commandState.canRename)
@@ -108,7 +102,7 @@ struct ClipboardMarkupApp: App {
                     }
                     .disabled(!commandState.canRestore)
                 } else {
-                    Button("Delete") {
+                    Button("Delete (⌫)") {
                         deleteSelectedClip()
                     }
                     .disabled(!commandState.canDelete)
@@ -161,8 +155,14 @@ struct ClipboardMarkupApp: App {
         }
 
         MenuBarExtra("Clipboard Markup", systemImage: "doc.on.clipboard") {
-            ClipboardMenuBarExtraContent(store: store, commandRelay: commandRelay)
+            ClipboardMenuBarExtraContent(
+                store: store,
+                commandRelay: commandRelay,
+                libraryPreferences: libraryPreferences
+            )
+                .environment(\.appFontScale, appearancePreferences.fontScale)
         }
+        .menuBarExtraStyle(.window)
     }
 
     private var selectedItem: ClipboardItem? {
@@ -229,15 +229,6 @@ struct ClipboardMarkupApp: App {
         } else {
             commandRelay.markupSelectedClip()
         }
-    }
-
-    private func previewSelectedClip() {
-        if let focusedCommandContext {
-            focusedCommandContext.preview()
-            return
-        }
-
-        selectedItem.map { store.openInPreview(itemID: $0.id, variant: .preferred) }
     }
 
     private func quickLookSelectedClip() {

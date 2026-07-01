@@ -14,4 +14,16 @@ final class AppCommandRelayTests: XCTestCase {
         XCTAssertTrue(relay.consumeSearchRequestIfNeeded())
         XCTAssertFalse(relay.consumeSearchRequestIfNeeded())
     }
+
+    func testMarkupRequestsAreConsumedOnce() {
+        let relay = AppCommandRelay()
+
+        XCTAssertFalse(relay.consumeMarkupRequestIfNeeded())
+
+        relay.markupSelectedClip()
+
+        XCTAssertEqual(relay.markupRequestID, 1)
+        XCTAssertTrue(relay.consumeMarkupRequestIfNeeded())
+        XCTAssertFalse(relay.consumeMarkupRequestIfNeeded())
+    }
 }

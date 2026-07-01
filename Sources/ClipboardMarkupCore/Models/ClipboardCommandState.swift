@@ -39,10 +39,6 @@ public struct ClipboardCommandState: Equatable {
         return !item.isDeleted && item.kind == .image
     }
 
-    public var canPreview: Bool {
-        canMarkup
-    }
-
     public var canQuickLook: Bool {
         canMarkup
     }

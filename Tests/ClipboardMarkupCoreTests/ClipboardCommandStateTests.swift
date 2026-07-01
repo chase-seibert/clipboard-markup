@@ -46,7 +46,6 @@ final class ClipboardCommandStateTests: XCTestCase {
         XCTAssertFalse(state.canCopyPlainText)
         XCTAssertTrue(state.canCopyOriginalImage)
         XCTAssertTrue(state.canMarkup)
-        XCTAssertTrue(state.canPreview)
         XCTAssertTrue(state.canQuickLook)
         XCTAssertTrue(state.canExport)
     }

@@ -6,7 +6,6 @@ public struct ClipboardCommandContext {
     public let copy: () -> Void
     public let copyAlternate: () -> Void
     public let markup: () -> Void
-    public let preview: () -> Void
     public let quickLook: () -> Void
     public let rename: () -> Void
     public let toggleFavorite: () -> Void
@@ -18,7 +17,6 @@ public struct ClipboardCommandContext {
         copy: @escaping () -> Void,
         copyAlternate: @escaping () -> Void,
         markup: @escaping () -> Void,
-        preview: @escaping () -> Void,
         quickLook: @escaping () -> Void,
         rename: @escaping () -> Void,
         toggleFavorite: @escaping () -> Void,
@@ -30,7 +28,6 @@ public struct ClipboardCommandContext {
         self.copy = copy
         self.copyAlternate = copyAlternate
         self.markup = markup
-        self.preview = preview
         self.quickLook = quickLook
         self.rename = rename
         self.toggleFavorite = toggleFavorite

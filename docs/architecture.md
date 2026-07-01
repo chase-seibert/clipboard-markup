@@ -2,7 +2,7 @@
 
 ## App Shape
 
-Clipboard Markup is a SwiftPM-packaged SwiftUI macOS app. The main scene is a `WindowGroup` with a `NavigationSplitView`: a native sidebar for history and favorites, and a detail surface for copy actions, Preview/Quick Look, and markup. A `Settings` scene owns preferences, and a `MenuBarExtra` exposes recent clips.
+Clipboard Markup is a SwiftPM-packaged SwiftUI macOS app. The main scene is a `WindowGroup` with a `NavigationSplitView`: a native sidebar for history and favorites, and a detail surface for copy actions, Quick Look, and markup. A `Settings` scene owns preferences, and a window-style `MenuBarExtra` exposes visual recent clips.
 
 ## Data Flow
 
@@ -37,7 +37,6 @@ The Settings window exposes a Data tab with the absolute data-directory path, a 
 - `NSPasteboard` for clipboard reading and writing.
 - Sensitive pasteboard filtering uses marker/source types, not content heuristics, to avoid accidentally storing password-manager values while still allowing normal copied text.
 - Carbon `RegisterEventHotKey` for the configurable global shortcut.
-- `NSWorkspace` for opening image files in Preview.
 - `QLPreviewPanel` for Quick Look.
 - Vision text recognition for local image transcription.
 - AppKit drawing in `MarkupRenderer` to flatten image annotations into PNG assets.
