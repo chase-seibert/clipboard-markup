@@ -407,7 +407,7 @@ private struct ClipboardRow: View {
 
             rowPreview
                 .frame(maxWidth: .infinity)
-                .frame(height: stackedThumbnailHeight)
+                .frame(maxHeight: stackedThumbnailHeight, alignment: .top)
         }
     }
 
@@ -452,7 +452,7 @@ private struct ClipboardRow: View {
     private var rowPreview: some View {
         ZStack(alignment: .bottomTrailing) {
             if item.kind == .text {
-                TextSnippetPreviewTile(text: item.plainText ?? "")
+                TextSnippetPreviewTile(text: item.plainText ?? "", maximumHeight: stackedThumbnailHeight)
             } else if item.kind == .image,
                let image = store.image(for: item, variant: .preferred) {
                 ImageHybridThumbnail(image: image)
@@ -484,28 +484,30 @@ private struct TextSnippetPreviewTile: View {
     @Environment(\.appFontScale) private var appFontScale
 
     let text: String
+    let maximumHeight: CGFloat
 
     private let fontSize: CGFloat = 12
+    private let horizontalPadding: CGFloat = 9
     private let verticalPadding: CGFloat = 8
 
     var body: some View {
-        GeometryReader { geometry in
-            Text(previewText)
-                .appFont(size: fontSize)
-                .foregroundStyle(Color.primary.opacity(0.78))
-                .lineLimit(lineLimit(for: geometry.size.height))
-                .truncationMode(.tail)
-                .multilineTextAlignment(.leading)
-                .padding(.horizontal, 9)
-                .padding(.vertical, verticalPadding)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 5))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 5)
-                        .stroke(Color.secondary.opacity(0.20), lineWidth: 1)
-                }
-                .clipped()
-        }
+        Text(previewText)
+            .appFont(size: fontSize)
+            .foregroundStyle(Color.primary.opacity(0.78))
+            .lineLimit(lineLimit)
+            .truncationMode(.tail)
+            .multilineTextAlignment(.leading)
+            .padding(.horizontal, horizontalPadding)
+            .padding(.vertical, verticalPadding)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .background(Color.secondary.opacity(0.07), in: RoundedRectangle(cornerRadius: 5))
+            .overlay {
+                RoundedRectangle(cornerRadius: 5)
+                    .stroke(Color.secondary.opacity(0.20), lineWidth: 1)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxHeight: maximumHeight, alignment: .top)
+            .clipped()
     }
 
     private var previewText: String {
@@ -513,10 +515,10 @@ private struct TextSnippetPreviewTile: View {
         return trimmedText.isEmpty ? "No text" : trimmedText
     }
 
-    private func lineLimit(for height: CGFloat) -> Int {
+    private var lineLimit: Int {
         let scaledFontSize = max(8, fontSize * CGFloat(appFontScale))
         let lineHeight = scaledFontSize * 1.22
-        let contentHeight = max(0, height - (verticalPadding * 2))
+        let contentHeight = max(0, maximumHeight - (verticalPadding * 2))
         return max(1, Int(floor(contentHeight / lineHeight)))
     }
 }
