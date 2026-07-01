@@ -32,7 +32,7 @@ public struct ClipboardRootView: View {
                 onDeleteItem: deleteItem,
                 onRestoreItem: restoreItem
             )
-            .navigationSplitViewColumnWidth(min: 260, ideal: 320, max: 620)
+            .navigationSplitViewColumnWidth(min: 280, ideal: 360, max: 700)
         } detail: {
             if let item = store.item(id: libraryPreferences.selectedItemID) {
                 ClipboardDetailView(store: store, item: item) {
@@ -168,11 +168,11 @@ private struct SidebarView: View {
                 ExpandingSearchField(text: $searchText, focusRequestID: searchFocusRequestID)
 
                 FilterMenu(selection: $libraryFilter)
-                    .frame(width: 38)
+                    .frame(width: 36)
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 10)
-            .padding(.bottom, 8)
+            .padding(.horizontal, 14)
+            .padding(.top, 11)
+            .padding(.bottom, 7)
 
             if items.isEmpty {
                 ContentUnavailableView(
@@ -185,6 +185,7 @@ private struct SidebarView: View {
                     ForEach(items) { item in
                         ClipboardRow(store: store, item: item)
                             .tag(item.id)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 10, bottom: 4, trailing: 10))
                             .contextMenu {
                                 if item.isDeleted {
                                     Button {
@@ -271,16 +272,15 @@ private struct FilterMenu: View {
                     .appFont(size: 12, weight: .medium)
 
                 Image(systemName: "chevron.down")
-                    .appFont(size: 9, weight: .semibold)
-                    .foregroundStyle(.secondary)
+                    .appFont(size: 8, weight: .semibold)
             }
-            .foregroundStyle(.primary)
+            .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity)
             .frame(height: 28)
-            .background(.quaternary.opacity(0.65), in: RoundedRectangle(cornerRadius: 7))
+            .background(Color(nsColor: .controlBackgroundColor).opacity(0.82), in: RoundedRectangle(cornerRadius: 7))
             .overlay {
                 RoundedRectangle(cornerRadius: 7)
-                    .stroke(Color.secondary.opacity(0.12), lineWidth: 1)
+                    .stroke(Color.secondary.opacity(0.14), lineWidth: 1)
             }
         }
         .menuStyle(.borderlessButton)
@@ -313,11 +313,11 @@ private struct ExpandingSearchField: View {
                 expandAndFocus()
             } label: {
                 Image(systemName: "magnifyingglass")
-                    .appFont(size: 15, weight: .semibold)
+                    .appFont(size: 14, weight: .semibold)
                     .frame(width: 20, height: 20)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(showsField ? Color.primary : Color.secondary)
             .help("Search clips (Command-F)")
 
             if showsField {
@@ -342,11 +342,11 @@ private struct ExpandingSearchField: View {
             }
         }
         .padding(.horizontal, showsField ? 9 : 5)
-        .frame(width: showsField ? 170 : 32, height: 28, alignment: .leading)
-        .background(.quaternary.opacity(0.65), in: RoundedRectangle(cornerRadius: 7))
+        .frame(width: showsField ? 190 : 32, height: 28, alignment: .leading)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.82), in: RoundedRectangle(cornerRadius: 7))
         .overlay {
             RoundedRectangle(cornerRadius: 7)
-                .stroke(Color.secondary.opacity(0.12), lineWidth: 1)
+                .stroke(Color.secondary.opacity(0.14), lineWidth: 1)
         }
         .clipped()
         .animation(.easeInOut(duration: 0.16), value: showsField)
@@ -398,6 +398,7 @@ private struct ClipboardRow: View {
                 .frame(width: thumbnailWidth, height: thumbnailHeight)
 
             metadataView
+                .layoutPriority(1)
         }
     }
 
@@ -407,6 +408,7 @@ private struct ClipboardRow: View {
 
             rowPreview
                 .frame(maxWidth: .infinity)
+                .frame(height: fixedStackedPreviewHeight, alignment: .top)
                 .frame(maxHeight: stackedThumbnailHeight, alignment: .top)
         }
     }
@@ -427,10 +429,14 @@ private struct ClipboardRow: View {
         item.kind == .text || (item.kind == .image && thumbnailSize >= 120)
     }
 
+    private var fixedStackedPreviewHeight: CGFloat? {
+        item.kind == .image ? stackedThumbnailHeight : nil
+    }
+
     private var metadataView: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(item.title)
-                .appFont(size: 13, weight: .semibold)
+                .appFont(size: 13.2, weight: .semibold)
                 .lineLimit(1)
 
             HStack(spacing: 6) {
@@ -546,7 +552,7 @@ private struct ImageHybridThumbnail: View {
             .clipShape(RoundedRectangle(cornerRadius: 5))
             .overlay {
                 RoundedRectangle(cornerRadius: 5)
-                    .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
+                    .stroke(Color.secondary.opacity(0.24), lineWidth: 1)
             }
         }
     }

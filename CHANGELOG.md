@@ -28,3 +28,4 @@
 - Added a generated data-directory `AGENTS.md` guide and a Settings LLM Integration tab with Finder access and a copyable agent prompt snippet.
 - Renamed the Settings integration area to Data and added a confirmed clear-history action for captured clipboard data and media.
 - Automatically selected and navigated to newly captured clipboard items.
+- Polished the sidebar, detail header/action bar, preview surface, and Settings controls with more consistent spacing, icon treatment, and blue primary actions.

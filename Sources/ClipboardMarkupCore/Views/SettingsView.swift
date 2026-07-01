@@ -40,10 +40,11 @@ public struct SettingsView: View {
                 libraryPreferences: libraryPreferences
             )
                 .tabItem {
-                    Label("Data", systemImage: "externaldrive")
+                    Label("Data", systemImage: "folder")
                 }
         }
-        .padding(20)
+        .tint(.blue)
+        .padding(18)
         .frame(width: 620, height: 540)
     }
 
@@ -78,6 +79,7 @@ public struct SettingsView: View {
                     Button("Reset") {
                         appearancePreferences.resetFontScale()
                     }
+                    .controlSize(.small)
                 }
 
                 Divider()
@@ -106,6 +108,7 @@ public struct SettingsView: View {
                     Button("Reset") {
                         appearancePreferences.resetThumbnailSize()
                     }
+                    .controlSize(.small)
                 }
             } header: {
                 Text("Appearance")
@@ -141,15 +144,19 @@ public struct SettingsView: View {
                 }
 
                 HStack {
-                    Text(shortcutPreferences.isRegistered ? "Registered" : "Not registered")
+                    Label(
+                        shortcutPreferences.isRegistered ? "Registered" : "Not registered",
+                        systemImage: shortcutPreferences.isRegistered ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
+                    )
                         .appFont(size: 12)
-                        .foregroundStyle(shortcutPreferences.isRegistered ? Color.secondary : Color.red)
+                        .foregroundStyle(shortcutPreferences.isRegistered ? Color.green : Color.red)
 
                     Spacer()
 
                     Button("Reset") {
                         shortcutPreferences.resetToDefault()
                     }
+                    .controlSize(.small)
                 }
             } header: {
                 Text("Global Shortcut")
@@ -216,6 +223,8 @@ private struct DataSettingsView: View {
                         } label: {
                             Label(didCopyPrompt ? "Copied" : "Copy Prompt", systemImage: didCopyPrompt ? "checkmark" : "doc.on.doc")
                         }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.blue)
                     }
                 }
             } header: {
@@ -237,6 +246,8 @@ private struct DataSettingsView: View {
                         } label: {
                             Label("Clear Clipboard History...", systemImage: "trash")
                         }
+                        .buttonStyle(.bordered)
+                        .tint(.red)
                     }
                 }
             } header: {
@@ -301,6 +312,7 @@ private struct DataDirectoryRow: View {
             } label: {
                 Label("Open in Finder", systemImage: "folder")
             }
+            .buttonStyle(.bordered)
         }
     }
 }

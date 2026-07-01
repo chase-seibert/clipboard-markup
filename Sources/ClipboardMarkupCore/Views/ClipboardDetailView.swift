@@ -10,7 +10,7 @@ struct ClipboardDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 18) {
                 DetailHeader(store: store, item: item, onDelete: onDelete, onRestore: onRestore)
 
                 if item.isDeleted {
@@ -28,8 +28,8 @@ struct ClipboardDetailView: View {
                     ImageDetailView(store: store, item: item)
                 }
             }
-            .padding(.horizontal, 28)
-            .padding(.top, 26)
+            .padding(.horizontal, 26)
+            .padding(.top, 24)
             .padding(.bottom, 28)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -63,15 +63,20 @@ private struct DetailHeader: View {
     @State private var titleFocusRequest = 0
 
     var body: some View {
-        HStack(alignment: .center, spacing: 14) {
-            Image(systemName: item.kind == .image ? "photo" : "doc.text")
-                .appFont(size: 24, weight: .medium)
-                .foregroundStyle(.secondary)
-                .frame(width: 42, height: 42)
-                .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        HStack(alignment: .center, spacing: 13) {
+            Image(systemName: headerIconSystemName)
+                .symbolRenderingMode(.hierarchical)
+                .appFont(size: 21, weight: .semibold)
+                .foregroundStyle(Color.blue)
+                .frame(width: 40, height: 40)
+                .background(Color.blue.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.blue.opacity(0.22), lineWidth: 1)
+                }
 
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
                     RenameTitleButton {
                         titleFocusRequest += 1
                     }
@@ -110,6 +115,10 @@ private struct DetailHeader: View {
         }
     }
 
+    private var headerIconSystemName: String {
+        item.kind == .image ? "photo.on.rectangle" : "doc.text"
+    }
+
     private var metadataText: String {
         if let deletedAt = item.deletedAt {
             return "\(item.subtitle)  Deleted \(DateFormatting.absolute.string(from: deletedAt))"
@@ -125,11 +134,16 @@ private struct RenameTitleButton: View {
     var body: some View {
         Button(action: action) {
             Text("✏️")
-                .appFont(size: 14)
-                .frame(width: 24, height: 24)
+                .appFont(size: 13)
+                .frame(width: 23, height: 23)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+        .overlay {
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color.secondary.opacity(0.14), lineWidth: 1)
+        }
         .help("Rename clip")
         .accessibilityLabel("Rename clip")
     }
@@ -147,7 +161,7 @@ private struct EditableTitleField: View {
         TextField("Name", text: $draftTitle)
             .focused($isFocused)
             .textFieldStyle(.plain)
-            .appFont(size: 17, weight: .semibold)
+            .appFont(size: 18, weight: .semibold)
             .lineLimit(2)
             .help("Rename clip")
             .onSubmit(commitRename)
@@ -187,12 +201,18 @@ private struct HeaderFavoriteButton: View {
             store.toggleSaved(itemID: item.id)
         } label: {
             Image(systemName: item.isSaved ? "star.fill" : "star")
-                .appFont(size: 18, weight: .semibold)
+                .symbolRenderingMode(.hierarchical)
+                .appFont(size: 17, weight: .semibold)
                 .foregroundStyle(item.isSaved ? Color.yellow : Color.secondary)
-                .frame(width: 30, height: 30)
+                .frame(width: 32, height: 32)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .background(item.isSaved ? Color.yellow.opacity(0.16) : Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 7))
+        .overlay {
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(item.isSaved ? Color.yellow.opacity(0.34) : Color.secondary.opacity(0.14), lineWidth: 1)
+        }
         .keyboardShortcut("d", modifiers: [.command])
         .help(item.isSaved ? "Remove from Favorites (Command-D)" : "Add to Favorites (Command-D)")
     }
@@ -204,12 +224,18 @@ private struct HeaderDeleteButton: View {
     var body: some View {
         Button(role: .destructive, action: onDelete) {
             Image(systemName: "trash")
+                .symbolRenderingMode(.hierarchical)
                 .appFont(size: 17, weight: .semibold)
                 .foregroundStyle(.red)
-                .frame(width: 30, height: 30)
+                .frame(width: 32, height: 32)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .background(Color.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 7))
+        .overlay {
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(Color.red.opacity(0.18), lineWidth: 1)
+        }
         .help("Delete clip")
     }
 }
@@ -220,12 +246,18 @@ private struct HeaderRestoreButton: View {
     var body: some View {
         Button(action: onRestore) {
             Image(systemName: "arrow.uturn.backward")
+                .symbolRenderingMode(.hierarchical)
                 .appFont(size: 17, weight: .semibold)
-                .foregroundStyle(.secondary)
-                .frame(width: 30, height: 30)
+                .foregroundStyle(Color.blue)
+                .frame(width: 32, height: 32)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .background(Color.blue.opacity(0.10), in: RoundedRectangle(cornerRadius: 7))
+        .overlay {
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(Color.blue.opacity(0.22), lineWidth: 1)
+        }
         .help("Restore clip")
     }
 }
@@ -247,7 +279,8 @@ private struct DeletedItemNotice: View {
             } label: {
                 Label("Restore", systemImage: "arrow.uturn.backward")
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.borderedProminent)
+            .tint(.blue)
             .controlSize(.regular)
         }
         .padding(.horizontal, 12)
@@ -289,7 +322,8 @@ private struct DetailActionBar: View {
             ActionButton(
                 title: "Copy",
                 systemImage: item.hasRichText ? "textformat" : "text.alignleft",
-                shortcut: "⌘C"
+                shortcut: "⌘C",
+                prominence: .primary
             ) {
                 store.copyPreferred(itemID: item.id)
             }
@@ -309,7 +343,8 @@ private struct DetailActionBar: View {
             ActionButton(
                 title: "Copy",
                 systemImage: "doc.on.doc",
-                shortcut: "⌘C"
+                shortcut: "⌘C",
+                prominence: .primary
             ) {
                 store.copyImage(itemID: item.id, variant: .preferred)
             }
@@ -337,38 +372,72 @@ private struct ActionButton: View {
     let title: String
     let systemImage: String
     let shortcut: String
+    var prominence: DetailActionProminence = .secondary
     let action: () -> Void
 
+    @ViewBuilder
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 7) {
-                Label(title, systemImage: systemImage)
-                    .labelStyle(.titleAndIcon)
-                ShortcutBadge(shortcut)
+        if prominence == .primary {
+            Button(action: action) {
+                label(isPrimary: true)
             }
-            .appFont(size: 13)
-            .padding(.horizontal, 2)
-            .frame(minHeight: 26)
+            .buttonStyle(.borderedProminent)
+            .tint(.blue)
+            .controlSize(.regular)
+        } else {
+            Button(action: action) {
+                label(isPrimary: false)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.regular)
         }
-        .buttonStyle(.bordered)
-        .controlSize(.regular)
+    }
+
+    private func label(isPrimary: Bool) -> some View {
+        HStack(spacing: 7) {
+            Label(title, systemImage: systemImage)
+                .labelStyle(.titleAndIcon)
+                .symbolRenderingMode(.hierarchical)
+
+            ShortcutBadge(shortcut, style: isPrimary ? .onAccent : .normal)
+        }
+        .appFont(size: 13, weight: isPrimary ? .semibold : .regular)
+        .foregroundStyle(isPrimary ? Color.white : Color.primary)
+        .padding(.horizontal, 2)
+        .frame(minHeight: 27)
     }
 }
 
-private struct ShortcutBadge: View {
-    let value: String
+private enum DetailActionProminence {
+    case primary
+    case secondary
+}
 
-    init(_ value: String) {
+private struct ShortcutBadge: View {
+    enum Style {
+        case normal
+        case onAccent
+    }
+
+    let value: String
+    let style: Style
+
+    init(_ value: String, style: Style = .normal) {
         self.value = value
+        self.style = style
     }
 
     var body: some View {
         Text(value)
             .appFont(size: 10, weight: .medium, design: .monospaced)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(style == .onAccent ? Color.white.opacity(0.82) : Color.secondary)
             .padding(.horizontal, 5)
             .padding(.vertical, 1.5)
-            .background(Color.secondary.opacity(0.10), in: RoundedRectangle(cornerRadius: 4))
+            .background(badgeBackground, in: RoundedRectangle(cornerRadius: 4))
+    }
+
+    private var badgeBackground: Color {
+        style == .onAccent ? Color.white.opacity(0.18) : Color.secondary.opacity(0.10)
     }
 }
 
@@ -381,9 +450,14 @@ private struct TextDetailView: View {
             Text(item.plainText ?? "")
                 .textSelection(.enabled)
                 .appFont(size: 13)
+                .lineSpacing(3)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(16)
                 .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.secondary.opacity(0.14), lineWidth: 1)
+                }
         }
     }
 }
@@ -419,7 +493,7 @@ private struct ScreenshotPreviewSurface: View {
                 .offsetBy(dx: inset, dy: inset)
 
             ZStack {
-                Color.secondary.opacity(0.07)
+                Color.secondary.opacity(0.08)
 
                 Image(nsImage: image)
                     .resizable()
@@ -428,16 +502,16 @@ private struct ScreenshotPreviewSurface: View {
                     .background(Color(nsColor: .textBackgroundColor))
                     .overlay {
                         Rectangle()
-                            .stroke(Color.primary.opacity(0.30), lineWidth: 1)
+                            .stroke(Color.primary.opacity(0.34), lineWidth: 1)
                     }
-                    .shadow(color: Color.black.opacity(0.20), radius: 10, x: 0, y: 3)
+                    .shadow(color: Color.black.opacity(0.24), radius: 11, x: 0, y: 4)
                     .position(x: fittedRect.midX, y: fittedRect.midY)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay {
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.primary.opacity(0.18), lineWidth: 1)
+                .stroke(Color.primary.opacity(0.22), lineWidth: 1)
         }
     }
 }
