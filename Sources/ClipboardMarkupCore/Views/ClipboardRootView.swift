@@ -30,6 +30,7 @@ public struct ClipboardRootView: View {
                 searchText: $searchText,
                 searchFocusRequestID: searchFocusRequestID,
                 items: displayedItems,
+                onRenameSelection: commandRelay.renameSelectedClip,
                 onDeleteSelection: deleteSelectedItem,
                 onDeleteItem: deleteItem,
                 onRestoreItem: restoreItem
@@ -233,10 +234,12 @@ private struct SidebarView: View {
     @Binding var searchText: String
     let searchFocusRequestID: Int
     let items: [ClipboardItem]
+    let onRenameSelection: () -> Void
     let onDeleteSelection: () -> Void
     let onDeleteItem: (ClipboardItem.ID) -> Void
     let onRestoreItem: (ClipboardItem.ID) -> Void
 
+    @FocusState private var isListFocused: Bool
     @State private var isSearchFieldPresented = false
 
     var body: some View {
@@ -270,6 +273,7 @@ private struct SidebarView: View {
                             .simultaneousGesture(
                                 TapGesture().onEnded {
                                     selectedID = item.id
+                                    isListFocused = true
                                 }
                             )
                             .listRowInsets(EdgeInsets(top: 4, leading: 10, bottom: 4, trailing: 10))
@@ -308,7 +312,21 @@ private struct SidebarView: View {
                     }
                 }
                 .listStyle(.sidebar)
+                .focusable()
+                .focused($isListFocused)
                 .onDeleteCommand(perform: onDeleteSelection)
+                .onKeyPress(.return) {
+                    onRenameSelection()
+                    return .handled
+                }
+                .onKeyPress(.delete) {
+                    onDeleteSelection()
+                    return .handled
+                }
+                .onKeyPress(.deleteForward) {
+                    onDeleteSelection()
+                    return .handled
+                }
             }
 
             if let lastError = store.lastError {
