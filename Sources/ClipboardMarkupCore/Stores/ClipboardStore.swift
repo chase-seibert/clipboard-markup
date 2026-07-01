@@ -27,6 +27,12 @@ public final class ClipboardStore: ObservableObject {
 
     public convenience init() {
         let storageLocationPreferences = StorageLocationPreferences()
+        #if DEBUG
+        StartupTimingLogger.mark(
+            "storage root resolved",
+            metadata: "location=\(Self.startupStorageLocationKind(for: storageLocationPreferences.rootURL)) custom=\(!storageLocationPreferences.isUsingDefaultLocation)"
+        )
+        #endif
         self.init(
             storage: ClipboardStorage(rootURL: storageLocationPreferences.rootURL),
             monitor: PasteboardMonitor()
@@ -37,6 +43,9 @@ public final class ClipboardStore: ObservableObject {
         self.storage = storage
         self.monitor = monitor
 
+        #if DEBUG
+        let storeInitToken = StartupTimingLogger.begin("clipboard store init")
+        #endif
         reloadItemsFromStorage()
 
         monitor.onCapture = { [weak self] capture in
@@ -44,6 +53,9 @@ public final class ClipboardStore: ObservableObject {
         }
 
         transcribePendingImages()
+        #if DEBUG
+        StartupTimingLogger.end(storeInitToken, metadata: "items=\(items.count)")
+        #endif
     }
 
     public var dataDirectoryURL: URL {
@@ -52,12 +64,33 @@ public final class ClipboardStore: ObservableObject {
 
     private func reloadItemsFromStorage() {
         do {
+            #if DEBUG
+            let loadedItems = try StartupTimingLogger.measure(
+                "history manifest load",
+                metadata: { "items=\($0.count)" }
+            ) {
+                try storage.loadItems().sorted { $0.createdAt > $1.createdAt }
+            }
+            let retainedItems = try StartupTimingLogger.measure(
+                "expired item purge",
+                metadata: { "kept=\($0.count) removed=\(loadedItems.count - $0.count)" }
+            ) {
+                try storage.purgeExpiredDeletedItems(from: loadedItems)
+            }
+            #else
             let loadedItems = try storage.loadItems().sorted { $0.createdAt > $1.createdAt }
             let retainedItems = try storage.purgeExpiredDeletedItems(from: loadedItems)
+            #endif
             self.items = retainedItems
 
             if retainedItems.count != loadedItems.count {
+                #if DEBUG
+                try StartupTimingLogger.measure("pruned manifest save") {
+                    try storage.saveItems(retainedItems)
+                }
+                #else
                 try storage.saveItems(retainedItems)
+                #endif
             }
             self.lastError = nil
         } catch {
@@ -71,6 +104,9 @@ public final class ClipboardStore: ObservableObject {
     }
 
     public func startMonitoring() {
+        #if DEBUG
+        StartupTimingLogger.mark("store monitoring start")
+        #endif
         monitor.start()
         purgeExpiredDeletedItems()
         startPurgeTimer()
@@ -308,7 +344,24 @@ public final class ClipboardStore: ObservableObject {
         guard let filename else {
             return nil
         }
+        #if DEBUG
+        let url = storage.url(filename: filename)
+        let token = StartupTimingLogger.beginOnce(.firstPersistedImageLoad, "first persisted image load")
+        let byteCount = token == nil ? nil : Self.fileSize(at: url)
+        let image = storage.image(filename: filename)
+        StartupTimingLogger.end(
+            token,
+            metadata: [
+                "variant=\(variant)",
+                StartupTimingLogger.metadata(for: image, filename: filename, byteCount: byteCount)
+            ]
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        )
+        return image
+        #else
         return storage.image(filename: filename)
+        #endif
     }
 
     public func imageURL(for item: ClipboardItem, variant: ImageVariant) -> URL? {
@@ -633,6 +686,32 @@ public final class ClipboardStore: ObservableObject {
             lastError = error.localizedDescription
         }
     }
+
+    #if DEBUG
+    private static func fileSize(at url: URL) -> Int64? {
+        guard let size = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber else {
+            return nil
+        }
+        return size.int64Value
+    }
+
+    private static func startupStorageLocationKind(for url: URL) -> String {
+        let path = url.standardizedFileURL.path.lowercased()
+        if path.contains("/library/cloudstorage/dropbox") {
+            return "dropbox"
+        }
+        if path.contains("/library/cloudstorage/googledrive") {
+            return "googleDrive"
+        }
+        if path.contains("/library/mobile documents/com~apple~clouddocs") {
+            return "iCloudDrive"
+        }
+        if path.contains("/library/application support/clipboardmarkup") {
+            return "applicationSupport"
+        }
+        return "custom"
+    }
+    #endif
 
     private func writeImageExport(item: ClipboardItem, variant: ImageVariant, to url: URL) throws {
         guard let image = image(for: item, variant: variant),

@@ -24,9 +24,15 @@ public final class StorageLocationPreferences: ObservableObject {
     private let userDefaults: UserDefaults
 
     public init(userDefaults: UserDefaults = .standard) {
+        #if DEBUG
+        let initToken = StartupTimingLogger.beginOnce(.storagePreferencesInit, "storage preferences init")
+        #endif
         self.userDefaults = userDefaults
         self.customRootPath = userDefaults.string(forKey: Keys.customRootPath)
         self.restoreSecurityScopedAccess()
+        #if DEBUG
+        StartupTimingLogger.end(initToken, metadata: "custom=\(customRootPath != nil)")
+        #endif
     }
 
     public var rootURL: URL {

@@ -37,6 +37,9 @@ struct ClipboardMarkupApp: App {
                 .preferredColorScheme(appearancePreferences.colorSchemePreference.colorScheme)
                 .frame(minWidth: 980, minHeight: 640)
                 .onAppear {
+                    #if DEBUG
+                    StartupTimingLogger.markOnce(.mainWindowAppear, "main window appeared")
+                    #endif
                     store.analyticsRecorder = analyticsRecorder
                     analyticsRecorder.start()
                     analyticsRecorder.record(.appWindowOpened)
@@ -456,6 +459,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         NSWindow.allowsAutomaticWindowTabbing = false
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        #if DEBUG
+        StartupTimingLogger.mark("application did finish launching")
+        #endif
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

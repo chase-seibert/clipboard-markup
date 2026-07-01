@@ -784,6 +784,15 @@ private struct ImageHybridThumbnail: View {
                 RoundedRectangle(cornerRadius: 5)
                     .stroke(Color.secondary.opacity(0.24), lineWidth: 1)
             }
+            .onAppear {
+                #if DEBUG
+                StartupTimingLogger.markOnce(
+                    .firstVisibleImageThumbnail,
+                    "first visible image thumbnail",
+                    metadata: "imagePoints=\(Int(round(image.size.width)))x\(Int(round(image.size.height))) thumbnailPoints=\(Int(round(size.width)))x\(Int(round(size.height)))"
+                )
+                #endif
+            }
         }
     }
 
