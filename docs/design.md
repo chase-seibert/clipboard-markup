@@ -30,7 +30,7 @@ Text entries show the captured plain text preview and expose:
 
 ## Image Detail
 
-The selected entry can be deleted from the focused history list with Delete/Backspace, or from the trash icon in the detail header. The `Clip` menu labels focused-list shortcuts for Rename and Delete. Deleting an entry marks it with `deletedAt` and moves it to Deleted Items. Deleted entries keep their media files so they can be restored, and the app permanently purges deleted entries and their media after 30 days.
+The selected entry can be renamed from the focused history list with Command-Return and deleted with Delete/Backspace, or from the trash icon in the detail header. The `Clip` menu labels focused-list shortcuts for Rename and Delete. Deleting an entry marks it with `deletedAt` and moves it to Deleted Items. Deleted entries keep their media files so they can be restored, and the app permanently purges deleted entries and their media after 30 days.
 
 Image entries show the marked-up image by default when available. The preview expands with the detail pane height so taller windows show larger screenshots, while the rendered image stops at native 1:1 size instead of upscaling. The preview sits on a subtle canvas with a stronger document-style border and shadow around the actual image so screenshots remain visually separate from the app chrome. Controls expose:
 

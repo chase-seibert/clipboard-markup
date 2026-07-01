@@ -310,7 +310,13 @@ private struct SidebarView: View {
                 .focusable()
                 .focused($isListFocused)
                 .onDeleteCommand(perform: onDeleteSelection)
-                .onKeyPress(.return) {
+                .onKeyPress { keyPress in
+                    guard keyPress.key == .return,
+                          keyPress.modifiers.contains(.command)
+                    else {
+                        return .ignored
+                    }
+
                     onRenameSelection()
                     return .handled
                 }

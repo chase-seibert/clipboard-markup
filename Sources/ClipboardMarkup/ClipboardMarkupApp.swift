@@ -85,7 +85,7 @@ struct ClipboardMarkupApp: App {
 
                 Divider()
 
-                Button("Rename (Return)") {
+                Button("Rename (⌘↩)") {
                     renameSelectedClip()
                 }
                 .disabled(!commandState.canRename)
