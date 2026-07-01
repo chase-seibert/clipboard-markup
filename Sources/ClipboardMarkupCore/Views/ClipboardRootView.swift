@@ -266,6 +266,12 @@ private struct SidebarView: View {
                     ForEach(items) { item in
                         ClipboardRow(store: store, item: item)
                             .tag(item.id)
+                            .contentShape(Rectangle())
+                            .simultaneousGesture(
+                                TapGesture().onEnded {
+                                    selectedID = item.id
+                                }
+                            )
                             .listRowInsets(EdgeInsets(top: 4, leading: 10, bottom: 4, trailing: 10))
                             .onDrag {
                                 store.itemProvider(itemID: item.id) ?? NSItemProvider()
@@ -719,6 +725,7 @@ private struct ImageHybridThumbnail: View {
                 if shouldShowMagnifier(for: size) {
                     OneToOneMagnifierLens(image: image, diameter: lensDiameter)
                         .position(x: size.width / 2, y: size.height / 2)
+                        .allowsHitTesting(false)
                         .accessibilityLabel("Magnified thumbnail detail")
                         .accessibilityHint("Shows the center of the screenshot at original size.")
                 }
