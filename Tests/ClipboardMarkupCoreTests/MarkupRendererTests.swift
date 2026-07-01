@@ -31,4 +31,27 @@ final class MarkupRendererTests: XCTestCase {
         XCTAssertEqual(rendered.size.height, 100)
         XCTAssertNotNil(rendered.pngData)
     }
+
+    func testRendererHandlesMultilineTextMarkup() {
+        let image = NSImage(size: CGSize(width: 240, height: 160))
+        image.lockFocus()
+        NSColor.white.setFill()
+        NSBezierPath(rect: CGRect(x: 0, y: 0, width: 240, height: 160)).fill()
+        image.unlockFocus()
+
+        let element = MarkupElement(
+            kind: .text,
+            start: NormalizedPoint(x: 0.5, y: 0.5),
+            end: NormalizedPoint(x: 0.5, y: 0.5),
+            text: "First line\nSecond line",
+            colorHex: "#007AFF",
+            fontSize: 24
+        )
+
+        let rendered = MarkupRenderer.render(original: image, elements: [element])
+
+        XCTAssertEqual(rendered.size.width, 240)
+        XCTAssertEqual(rendered.size.height, 160)
+        XCTAssertNotNil(rendered.pngData)
+    }
 }
