@@ -130,7 +130,6 @@ public struct ClipboardMenuBarExtraContent: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.small)
-            .tint(.blue)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)

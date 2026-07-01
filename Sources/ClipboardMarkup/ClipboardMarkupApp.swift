@@ -43,7 +43,8 @@ struct ClipboardMarkupApp: App {
                     appDelegate.configure(
                         store: store,
                         commandRelay: commandRelay,
-                        shortcutPreferences: shortcutPreferences
+                        shortcutPreferences: shortcutPreferences,
+                        appearancePreferences: appearancePreferences
                     )
                 }
         }
@@ -394,6 +395,21 @@ private extension AppColorSchemePreference {
 }
 
 @MainActor
+private enum AppAppearanceApplier {
+    static func apply(_ preference: AppColorSchemePreference) {
+        // AppKit-owned surfaces such as menu bar extra windows inherit NSApp.appearance.
+        switch preference {
+        case .system:
+            NSApp.appearance = nil
+        case .light:
+            NSApp.appearance = NSAppearance(named: .aqua)
+        case .dark:
+            NSApp.appearance = NSAppearance(named: .darkAqua)
+        }
+    }
+}
+
+@MainActor
 private final class ExportFormatAccessoryController: NSObject {
     private weak var panel: NSSavePanel?
     private let item: ClipboardItem
@@ -429,6 +445,7 @@ private final class ExportFormatAccessoryController: NSObject {
 private final class AppDelegate: NSObject, NSApplicationDelegate {
     private var shortcutManager: GlobalShortcutManager?
     private var shortcutCancellable: AnyCancellable?
+    private var appearanceCancellable: AnyCancellable?
     private var didConfigure = false
 
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -448,8 +465,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     func configure(
         store: ClipboardStore,
         commandRelay: AppCommandRelay,
-        shortcutPreferences: ShortcutPreferences
+        shortcutPreferences: ShortcutPreferences,
+        appearancePreferences: AppearancePreferences
     ) {
+        AppAppearanceApplier.apply(appearancePreferences.colorSchemePreference)
+
         guard !didConfigure else {
             return
         }
@@ -466,6 +486,14 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self, weak shortcutPreferences] shortcut in
                 let isRegistered = self?.shortcutManager?.update(shortcut: shortcut) ?? false
                 shortcutPreferences?.setRegistrationStatus(isRegistered)
+            }
+
+        appearanceCancellable = appearancePreferences.$colorSchemePreference
+            .dropFirst()
+            .sink { preference in
+                Task { @MainActor in
+                    AppAppearanceApplier.apply(preference)
+                }
             }
     }
 }
