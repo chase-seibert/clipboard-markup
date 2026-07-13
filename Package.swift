@@ -8,12 +8,16 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "ClipboardMarkup", targets: ["ClipboardMarkup"])
+        .executable(name: "ClipboardMarkup", targets: ["ClipboardMarkup"]),
+        .executable(name: "ClipboardMarkupLoginLauncher", targets: ["ClipboardMarkupLoginLauncher"])
     ],
     targets: [
         .executableTarget(
             name: "ClipboardMarkup",
             dependencies: ["ClipboardMarkupCore"]
+        ),
+        .executableTarget(
+            name: "ClipboardMarkupLoginLauncher"
         ),
         .target(
             name: "ClipboardMarkupCore",

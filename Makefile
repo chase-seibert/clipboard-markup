@@ -1,9 +1,13 @@
 APP_NAME := ClipboardMarkup
+PYTHON ?= python3
 
-.PHONY: setup build run verify test clean
+.PHONY: setup analytics-config build run verify test clean
 
 setup:
 	swift package resolve
+
+analytics-config:
+	@$(PYTHON) script/write_analytics_config.py
 
 build:
 	swift build

@@ -4,6 +4,8 @@
 
 Clipboard Markup is a SwiftPM-packaged SwiftUI macOS app. The main scene is a `WindowGroup` with a `NavigationSplitView`: a native sidebar for history and favorites, and a detail surface for copy actions, Quick Look, and markup. A `Settings` scene owns preferences, and a window-style `MenuBarExtra` exposes visual recent clips.
 
+The app bundle includes a small nested login item at `Contents/Library/LoginItems/ClipboardMarkupLoginLauncher.app`. When launch-at-login is enabled, macOS starts that helper after user login; the helper opens the main app with `--launched-at-login` and exits. The main app starts in accessory mode for that launch path, hides its first window after startup setup, and keeps the menu bar extra plus clipboard monitoring running.
+
 ## Data Flow
 
 1. `PasteboardMonitor` polls `NSPasteboard.general.changeCount`.
@@ -33,11 +35,13 @@ Deletion is soft by default: entries keep their manifest row and media files wit
 
 The Settings window exposes a Storage Location tab with the absolute data-directory path, per-location Finder buttons, and storage-location migration controls. An Other tab contains the copyable prompt snippet that points agents at the generated `AGENTS.md`, plus a confirmed destructive clear action that removes `entries.json` history contents and media files while preserving the current system clipboard and user preferences.
 
+The Other tab also exposes a launch-at-login toggle backed by `SMAppService.loginItem(identifier:)`. ServiceManagement status is treated as the source of truth so the UI reflects changes made in macOS Login Items settings.
+
 Analytics state is stored separately under fixed local Application Support in `ClipboardMarkup/Analytics`, even when clipboard history is moved to iCloud Drive, Dropbox, Google Drive, or a custom folder. This queue is not synced with clipboard media and is not cleared by Clear Clipboard History.
 
 ## Analytics
 
-Analytics configuration is supplied by `Config/AnalyticsConfig.plist` in local builds, by an `AnalyticsConfig.plist` override in Application Support, or by environment variables for tests/smoke runs. The committed `Config/AnalyticsConfig.example.plist` documents the required keys: `analyticsBaseUrl`, `analyticsKeyId`, `analyticsSecret`, and `audience`.
+Analytics configuration is supplied by the ignored `Config/AnalyticsConfig.local.plist` in trusted local builds, by an `AnalyticsConfig.plist` override in Application Support, or by environment variables for tests/smoke runs. `make analytics-config` validates GitHub Actions-compatible environment variables and generates the local plist with mode 0600. The committed `Config/AnalyticsConfig.example.plist` documents the required keys: `analyticsBaseUrl`, `analyticsKeyId`, `analyticsSecret`, and `audience`.
 
 Events are posted as gzipped JSON batches to `{analyticsBaseUrl}/v1/events`, signed with HMAC-SHA256, and retried durably for up to 90 days. The client reuses prepared compressed bytes for retries, handles server pause/redirect/stop-logging responses, and treats permanent validation failures as non-retryable.
 

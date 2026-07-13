@@ -14,6 +14,7 @@
 - As a macOS user, I want a global keyboard shortcut to show the app so that returning to an old clipboard item is fast.
 - As a macOS user, I want to configure the global shortcut in Settings so that it does not conflict with my other utilities.
 - As a macOS user, I want a menu bar icon with visual recent clips so that I can quickly recognize and restore common clipboard items without opening the full window.
+- As a macOS user, I want Clipboard Markup to launch after I sign in so clipboard capture resumes without me opening it manually.
 - As a macOS user, I want to scale the app's text size with keyboard shortcuts and Settings so that the UI stays comfortable to read.
 - As a macOS user, I want to resize image thumbnails in the history list so that screenshots are easier to recognize.
 - As a macOS user, I want text clips to show a readable preview tile in the history list so that copied snippets are recognizable without opening the detail view.

@@ -21,6 +21,7 @@ Also load the user-level instructions at `/Users/cseibert/.codex/AGENTS.md`.
 Prefer Makefile targets for common workflows:
 
 - `make setup`: resolve Swift package dependencies.
+- `make analytics-config`: validate analytics environment variables and generate the ignored local plist.
 - `make build`: build the app with SwiftPM.
 - `make run`: build and launch the app bundle.
 - `make verify`: build, launch, and confirm the app process is running.

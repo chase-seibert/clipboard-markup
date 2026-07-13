@@ -3,6 +3,10 @@ import Combine
 import ClipboardMarkupCore
 import SwiftUI
 
+private enum AppLaunchMode {
+    static let isLaunchedAtLogin = ProcessInfo.processInfo.arguments.contains("--launched-at-login")
+}
+
 @main
 struct ClipboardMarkupApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
@@ -15,6 +19,7 @@ struct ClipboardMarkupApp: App {
     @StateObject private var appearancePreferences = AppearancePreferences()
     @StateObject private var libraryPreferences = LibraryPreferences()
     @StateObject private var storageLocationPreferences = StorageLocationPreferences()
+    @StateObject private var launchAtLoginPreferences = LaunchAtLoginPreferences()
     @StateObject private var analyticsPreferences: AnalyticsPreferences
     @StateObject private var analyticsRecorder: AnalyticsRecorder
 
@@ -49,6 +54,7 @@ struct ClipboardMarkupApp: App {
                         shortcutPreferences: shortcutPreferences,
                         appearancePreferences: appearancePreferences
                     )
+                    appDelegate.hideMainWindowForLoginLaunchIfNeeded()
                 }
         }
         .defaultSize(width: 1080, height: 720)
@@ -169,6 +175,7 @@ struct ClipboardMarkupApp: App {
                 store: store,
                 libraryPreferences: libraryPreferences,
                 storageLocationPreferences: storageLocationPreferences,
+                launchAtLoginPreferences: launchAtLoginPreferences,
                 analyticsPreferences: analyticsPreferences,
                 analyticsRecorder: analyticsRecorder
             )
@@ -450,6 +457,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     private var shortcutCancellable: AnyCancellable?
     private var appearanceCancellable: AnyCancellable?
     private var didConfigure = false
+    private var didHideLoginLaunchWindow = false
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         NSWindow.allowsAutomaticWindowTabbing = false
@@ -457,8 +465,12 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSWindow.allowsAutomaticWindowTabbing = false
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
+        if AppLaunchMode.isLaunchedAtLogin {
+            NSApp.setActivationPolicy(.accessory)
+        } else {
+            NSApp.setActivationPolicy(.regular)
+            NSApp.activate(ignoringOtherApps: true)
+        }
         #if DEBUG
         StartupTimingLogger.mark("application did finish launching")
         #endif
@@ -501,5 +513,18 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
                     AppAppearanceApplier.apply(preference)
                 }
             }
+    }
+
+    func hideMainWindowForLoginLaunchIfNeeded() {
+        guard AppLaunchMode.isLaunchedAtLogin, !didHideLoginLaunchWindow else {
+            return
+        }
+
+        didHideLoginLaunchWindow = true
+        DispatchQueue.main.async {
+            NSApp.windows
+                .filter { $0.title.contains("Clipboard Markup") }
+                .forEach { $0.orderOut(nil) }
+        }
     }
 }

@@ -30,10 +30,13 @@ The app polls the macOS pasteboard, records new clipboard contents locally, and 
 
 ```sh
 make setup
+make analytics-config
 make build
 make run
 make verify
 make test
 ```
+
+`make analytics-config` generates the ignored local analytics plist from trusted environment variables. It is only needed for builds that upload usage analytics.
 
 See `docs/setup-install.md` for more detail.

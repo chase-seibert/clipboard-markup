@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-07-13
+
+- Moved the namespace-scoped analytics credential out of tracked source and added an ignored, environment-generated build config for GitHub Actions and trusted local builds.
+
 ## 2026-06-30
 
 - Created the SwiftPM macOS app scaffold.

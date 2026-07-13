@@ -8,6 +8,7 @@ public struct SettingsView: View {
     @ObservedObject private var store: ClipboardStore
     @ObservedObject private var libraryPreferences: LibraryPreferences
     @ObservedObject private var storageLocationPreferences: StorageLocationPreferences
+    @ObservedObject private var launchAtLoginPreferences: LaunchAtLoginPreferences
     @ObservedObject private var analyticsPreferences: AnalyticsPreferences
     private let analyticsRecorder: AnalyticsRecorder
     @State private var isRecordingShortcut = false
@@ -19,6 +20,7 @@ public struct SettingsView: View {
         store: ClipboardStore,
         libraryPreferences: LibraryPreferences,
         storageLocationPreferences: StorageLocationPreferences,
+        launchAtLoginPreferences: LaunchAtLoginPreferences,
         analyticsPreferences: AnalyticsPreferences,
         analyticsRecorder: AnalyticsRecorder
     ) {
@@ -27,6 +29,7 @@ public struct SettingsView: View {
         self.store = store
         self.libraryPreferences = libraryPreferences
         self.storageLocationPreferences = storageLocationPreferences
+        self.launchAtLoginPreferences = launchAtLoginPreferences
         self.analyticsPreferences = analyticsPreferences
         self.analyticsRecorder = analyticsRecorder
     }
@@ -53,6 +56,7 @@ public struct SettingsView: View {
                 store: store,
                 libraryPreferences: libraryPreferences,
                 storageLocationPreferences: storageLocationPreferences,
+                launchAtLoginPreferences: launchAtLoginPreferences,
                 analyticsPreferences: analyticsPreferences,
                 analyticsRecorder: analyticsRecorder
             )
@@ -578,6 +582,7 @@ private struct OtherSettingsView: View {
     @ObservedObject var store: ClipboardStore
     @ObservedObject var libraryPreferences: LibraryPreferences
     @ObservedObject var storageLocationPreferences: StorageLocationPreferences
+    @ObservedObject var launchAtLoginPreferences: LaunchAtLoginPreferences
     @ObservedObject var analyticsPreferences: AnalyticsPreferences
     @ObservedObject var analyticsRecorder: AnalyticsRecorder
 
@@ -590,6 +595,36 @@ private struct OtherSettingsView: View {
 
     var body: some View {
         Form {
+            Section {
+                VStack(alignment: .leading, spacing: 10) {
+                    Toggle(
+                        "Launch Clipboard Markup at login",
+                        isOn: Binding(
+                            get: { launchAtLoginPreferences.status.isOn },
+                            set: { launchAtLoginPreferences.setLaunchAtLoginEnabled($0) }
+                        )
+                    )
+                    .appFont(size: 13)
+                    .disabled(launchAtLoginPreferences.status == .unavailable)
+
+                    Label(launchAtLoginPreferences.status.displayText, systemImage: launchAtLoginStatusSystemImage)
+                        .appFont(size: 12)
+                        .foregroundStyle(.secondary)
+
+                    if launchAtLoginPreferences.status.canOpenSystemSettings {
+                        Button {
+                            launchAtLoginPreferences.openSystemSettingsLoginItems()
+                        } label: {
+                            Label("Open Login Items Settings", systemImage: "gearshape")
+                        }
+                        .controlSize(.small)
+                    }
+                }
+            } header: {
+                Text("Startup")
+                    .appFont(size: 12, weight: .semibold)
+            }
+
             Section {
                 VStack(alignment: .leading, spacing: 10) {
                     Toggle(
@@ -677,6 +712,9 @@ private struct OtherSettingsView: View {
         } message: {
             Text("This permanently deletes all saved clipboard entries and media from Clipboard Markup. Your current system clipboard and app settings will not be changed.")
         }
+        .onAppear {
+            launchAtLoginPreferences.refresh()
+        }
     }
 
     private func copyPrompt() {
@@ -709,6 +747,21 @@ private struct OtherSettingsView: View {
             "clock"
         case .stoppedByServer:
             "stop.circle"
+        }
+    }
+
+    private var launchAtLoginStatusSystemImage: String {
+        switch launchAtLoginPreferences.status {
+        case .off:
+            "power.circle"
+        case .enabled:
+            "checkmark.circle.fill"
+        case .requiresApproval:
+            "exclamationmark.triangle.fill"
+        case .unavailable:
+            "xmark.circle"
+        case .error:
+            "exclamationmark.circle.fill"
         }
     }
 }
