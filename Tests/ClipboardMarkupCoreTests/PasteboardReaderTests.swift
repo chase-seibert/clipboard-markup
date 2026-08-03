@@ -53,6 +53,26 @@ final class PasteboardReaderTests: XCTestCase {
         XCTAssertEqual(capturedImage.size.height, 24)
     }
 
+    func testImageWriterStoresAlternateFormatsOnOnePasteboardItem() {
+        let pasteboard = makePasteboard()
+        let image = makeImage()
+
+        XCTAssertTrue(PasteboardWriter.writeImage(image, to: pasteboard))
+        XCTAssertEqual(pasteboard.pasteboardItems?.count, 1)
+        XCTAssertEqual(
+            Set(pasteboard.pasteboardItems?.first?.types ?? []),
+            Set([NSPasteboard.PasteboardType.png, NSPasteboard.PasteboardType.tiff])
+        )
+    }
+
+    func testImageWriterReplacesPreviousContentsWithOneItem() {
+        let pasteboard = makePasteboard()
+        pasteboard.writeObjects([makeImage(), makeImage()])
+
+        XCTAssertTrue(PasteboardWriter.writeImage(makeImage(), to: pasteboard))
+        XCTAssertEqual(pasteboard.pasteboardItems?.count, 1)
+    }
+
     func testSkipsConcealedPasteboardContent() {
         let pasteboard = makePasteboard()
         pasteboard.setString("super-secret-password", forType: .string)
@@ -89,5 +109,14 @@ final class PasteboardReaderTests: XCTestCase {
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("ClipboardMarkupTests.\(UUID().uuidString)"))
         pasteboard.clearContents()
         return pasteboard
+    }
+
+    private func makeImage() -> NSImage {
+        let image = NSImage(size: CGSize(width: 24, height: 24))
+        image.lockFocus()
+        NSColor.systemBlue.setFill()
+        NSBezierPath(rect: CGRect(x: 0, y: 0, width: 24, height: 24)).fill()
+        image.unlockFocus()
+        return image
     }
 }

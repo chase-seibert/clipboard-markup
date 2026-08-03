@@ -14,7 +14,7 @@ The app bundle includes a small nested login item at `Contents/Library/LoginItem
 4. `ClipboardStore` deduplicates against the newest item, writes media assets through `ClipboardStorage`, and publishes a newest-first `items` array.
 5. Image clips without a transcript are sent to local Vision OCR; the result is persisted as automatic naming metadata.
 6. Views call store methods to copy entries, rename entries, toggle favorite state, soft-delete or restore entries, or update image markup.
-7. Copy actions update the pasteboard and advance the monitor checkpoint so the app does not re-capture its own writes.
+7. Copy actions update the pasteboard and advance the monitor checkpoint so the app does not re-capture its own writes. Image copies use one `NSPasteboardItem` with PNG and TIFF alternate representations; they never append the `NSImage` as another pasteboard item.
 8. `AnalyticsRecorder` records privacy-safe usage events for app/session activity, clip types, feature actions, filters, search, settings sections, and storage-provider changes. Event properties are restricted to categorical values, counts, and an anonymous install ID.
 
 ## Persistence

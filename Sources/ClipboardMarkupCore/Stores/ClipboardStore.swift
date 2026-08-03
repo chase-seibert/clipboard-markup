@@ -316,16 +316,7 @@ public final class ClipboardStore: ObservableObject {
             return
         }
 
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-
-        if let pngData = image.pngData {
-            pasteboard.setData(pngData, forType: .png)
-        }
-        if let tiffData = image.tiffRepresentation {
-            pasteboard.setData(tiffData, forType: .tiff)
-        }
-        pasteboard.writeObjects([image])
+        PasteboardWriter.writeImage(image)
         monitor.acceptCurrentChangeCount()
         analyticsRecorder?.record(.clipAction(variant == .original ? .copyOriginalImage : .copy))
     }
