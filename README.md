@@ -2,6 +2,8 @@
 
 Clipboard Markup is a native macOS clipboard history app focused on text, rich text, images, screenshots, and quick image annotation.
 
+![Clipboard Markup app screenshot](docs/images/codex-clipboard-729a77d3-450f-49d4-be69-786760896204.png)
+
 The app polls the macOS pasteboard, records new clipboard contents locally, and keeps the regular system clipboard behavior intact. Text entries can be copied back as plain text or rich text. Image entries keep both the original image and an optional marked-up image, with actions to copy the preferred image, view the original, open in Preview, or Quick Look the file.
 
 ## Current Scope
