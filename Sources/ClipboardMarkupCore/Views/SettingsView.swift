@@ -13,6 +13,7 @@ public struct SettingsView: View {
     private let analyticsRecorder: AnalyticsRecorder
     @State private var isRecordingShortcut = false
     @State private var selectedTab = SettingsTab.appearance
+    @State private var isShowingScreenshotSetup = false
 
     public init(
         shortcutPreferences: ShortcutPreferences,
@@ -73,6 +74,19 @@ public struct SettingsView: View {
         .padding(18)
         .frame(width: 700, height: 540)
         .onExitCommand(perform: closeSettingsWindow)
+        .sheet(isPresented: $isShowingScreenshotSetup) {
+            VStack(alignment: .leading, spacing: 18) {
+                Text("Screenshot Setup").appFont(size: 24, weight: .semibold)
+                ScrollView { ScreenshotSetupView(store: store) }
+                HStack {
+                    Spacer()
+                    Button("Done") { isShowingScreenshotSetup = false }
+                        .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding(24)
+            .frame(width: 650, height: 500)
+        }
         .onAppear {
             analyticsRecorder.record(.settingsOpened)
             analyticsRecorder.record(.settingsSectionOpened(selectedTab.analyticsSection))
@@ -210,6 +224,10 @@ public struct SettingsView: View {
                 Text("Global Shortcut")
                     .appFont(size: 12, weight: .semibold)
             }
+            Section("Screenshots") {
+                Text("Screenshots must be copied to the clipboard to appear in your history.")
+                Button("Set Up Screenshot Capture…") { isShowingScreenshotSetup = true }
+            }
         }
         .formStyle(.grouped)
     }
@@ -316,7 +334,7 @@ private struct SettingsTabLabel: View {
     }
 }
 
-private struct StorageLocationSettingsView: View {
+struct StorageLocationSettingsView: View {
     @ObservedObject var store: ClipboardStore
     @ObservedObject var storageLocationPreferences: StorageLocationPreferences
     @ObservedObject var analyticsRecorder: AnalyticsRecorder

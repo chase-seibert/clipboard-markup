@@ -15,6 +15,12 @@ make run
 
 `make run` builds the SwiftPM executable, stages `dist/ClipboardMarkup.app`, and launches the app bundle with normal foreground activation.
 
+On first launch, onboarding asks where to store clipboard history. Choose **Use Default Folder** to keep `~/Library/Application Support/ClipboardMarkup`, or choose another folder. Continuing verifies that both the history folder and its `Media` subfolder accept writes. The choice is remembered; existing installations see this prompt once after updating and retain their current folder.
+
+The second onboarding step checks the saved macOS screenshot destination and guides you to change it to the clipboard. It opens Screenshot, explains **Options → Save to → Clipboard** where available, and provides the clipboard shortcut and Keyboard Shortcuts alternative for macOS versions that omit that option. Destination detection is advisory because macOS preferences are not a public API and custom shortcuts or third-party screenshot tools may override them. The step refreshes when you return to the app and confirms when a new image is actually captured and saved. You can finish setup without changing macOS settings or taking a test screenshot. Reopen this guide from **Settings → Shortcut → Set Up Screenshot Capture**.
+
+To add a screenshot to clipboard history, use **Control–Shift–Command–4** and select an area (or **Control–Shift–Command–3** for the entire screen). Without Control, macOS normally saves a screenshot to a file, which does not change the clipboard and will not appear in this app. You can also copy an image in another app or copy an image file in Finder. No custom storage location is required for images.
+
 ## Analytics Config
 
 Usage analytics are privacy-safe and can be disabled from Settings > Other. Trusted builds read `CLIPBOARD_MARKUP_ANALYTICS_BASE_URL`, `CLIPBOARD_MARKUP_ANALYTICS_KEY_ID`, `CLIPBOARD_MARKUP_ANALYTICS_SECRET`, and optional `CLIPBOARD_MARKUP_ANALYTICS_AUDIENCE` environment variables. Run `make analytics-config` to validate those values and write the ignored, mode-0600 `Config/AnalyticsConfig.local.plist`; `make run` and `make verify` copy that file into the staged app bundle when present. Builds without a local or Application Support config keep analytics disabled.

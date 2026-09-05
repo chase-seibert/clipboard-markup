@@ -41,6 +41,16 @@ struct ClipboardMarkupApp: App {
                 .environment(\.appThumbnailSize, CGFloat(appearancePreferences.thumbnailSize))
                 .preferredColorScheme(appearancePreferences.colorSchemePreference.colorScheme)
                 .frame(minWidth: 980, minHeight: 640)
+                .sheet(isPresented: Binding(
+                    get: { !storageLocationPreferences.hasCompletedOnboarding },
+                    set: { _ in }
+                )) {
+                    OnboardingView(
+                        store: store,
+                        preferences: storageLocationPreferences,
+                        analyticsRecorder: analyticsRecorder
+                    )
+                }
                 .onAppear {
                     #if DEBUG
                     StartupTimingLogger.markOnce(.mainWindowAppear, "main window appeared")
@@ -54,7 +64,9 @@ struct ClipboardMarkupApp: App {
                         shortcutPreferences: shortcutPreferences,
                         appearancePreferences: appearancePreferences
                     )
-                    appDelegate.hideMainWindowForLoginLaunchIfNeeded()
+                    appDelegate.hideMainWindowForLoginLaunchIfNeeded(
+                        needsOnboarding: !storageLocationPreferences.hasCompletedOnboarding
+                    )
                 }
         }
         .defaultSize(width: 1080, height: 720)
@@ -515,7 +527,12 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             }
     }
 
-    func hideMainWindowForLoginLaunchIfNeeded() {
+    func hideMainWindowForLoginLaunchIfNeeded(needsOnboarding: Bool) {
+        if needsOnboarding {
+            NSApp.setActivationPolicy(.regular)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
         guard AppLaunchMode.isLaunchedAtLogin, !didHideLoginLaunchWindow else {
             return
         }

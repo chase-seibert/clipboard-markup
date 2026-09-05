@@ -3,6 +3,32 @@ import AppKit
 import XCTest
 
 final class PasteboardReaderTests: XCTestCase {
+    func testCapturesPNGAndTIFFPayloadsWithoutAppKitWriter() throws {
+        let image = makeImage()
+        for (type, data) in [(NSPasteboard.PasteboardType.png, image.pngData), (.tiff, image.tiffRepresentation)] {
+            let pasteboard = makePasteboard()
+            defer { pasteboard.releaseGlobally() }
+            XCTAssertTrue(pasteboard.setData(try XCTUnwrap(data), forType: type))
+            guard case let .image(captured, _) = PasteboardReader.capture(from: pasteboard) else {
+                return XCTFail("Expected image capture for \(type.rawValue)")
+            }
+            XCTAssertNotNil(captured.pngData)
+        }
+    }
+
+    func testCapturesImageFileCopiedFromFinder() throws {
+        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).png")
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+        try XCTUnwrap(makeImage().pngData).write(to: fileURL)
+        let pasteboard = makePasteboard()
+        defer { pasteboard.releaseGlobally() }
+        XCTAssertTrue(pasteboard.writeObjects([fileURL as NSURL]))
+
+        guard case .image = PasteboardReader.capture(from: pasteboard) else {
+            return XCTFail("Expected image capture from file URL")
+        }
+    }
+
     func testCapturesPlainTextFromPasteboard() {
         let pasteboard = makePasteboard()
         pasteboard.setString("hello clipboard", forType: .string)

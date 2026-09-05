@@ -20,6 +20,7 @@ public struct StorageLocationPreset: Identifiable, Hashable {
 @MainActor
 public final class StorageLocationPreferences: ObservableObject {
     @Published public private(set) var customRootPath: String?
+    @Published public private(set) var hasCompletedOnboarding: Bool
 
     private let userDefaults: UserDefaults
 
@@ -29,6 +30,7 @@ public final class StorageLocationPreferences: ObservableObject {
         #endif
         self.userDefaults = userDefaults
         self.customRootPath = userDefaults.string(forKey: Keys.customRootPath)
+        self.hasCompletedOnboarding = userDefaults.bool(forKey: Keys.hasCompletedOnboarding)
         self.restoreSecurityScopedAccess()
         #if DEBUG
         StartupTimingLogger.end(initToken, metadata: "custom=\(customRootPath != nil)")
@@ -41,6 +43,12 @@ public final class StorageLocationPreferences: ObservableObject {
         }
 
         return URL(fileURLWithPath: customRootPath, isDirectory: true).standardizedFileURL
+    }
+
+    public func completeOnboarding() throws {
+        try ClipboardStorage(rootURL: rootURL).validateWritable()
+        userDefaults.set(true, forKey: Keys.hasCompletedOnboarding)
+        hasCompletedOnboarding = true
     }
 
     public var isUsingDefaultLocation: Bool {
@@ -253,6 +261,7 @@ public final class StorageLocationPreferences: ObservableObject {
     }
 
     private enum Keys {
+        static let hasCompletedOnboarding = "storage.hasCompletedOnboarding"
         static let customRootPath = "storage.customRootPath"
         static let bookmarkData = "storage.bookmarkData"
     }

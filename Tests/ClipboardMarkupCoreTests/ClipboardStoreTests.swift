@@ -4,6 +4,33 @@ import XCTest
 
 @MainActor
 final class ClipboardStoreTests: XCTestCase {
+    func testMonitorCapturesPNGAndPersistsReloadableImage() async throws {
+        let rootURL = temporaryRootURL()
+        let storage = ClipboardStorage(rootURL: rootURL)
+        let pasteboard = testPasteboard()
+        let monitor = PasteboardMonitor(pasteboard: pasteboard)
+        let store = ClipboardStore(storage: storage, monitor: monitor)
+        defer {
+            monitor.stop()
+            pasteboard.releaseGlobally()
+            try? FileManager.default.removeItem(at: rootURL)
+        }
+        monitor.start()
+        pasteboard.clearContents()
+        XCTAssertTrue(pasteboard.setData(try XCTUnwrap(testImage().pngData), forType: .png))
+        // Exercise the real timer, then verify decoding and persistence together.
+        for _ in 0..<40 where store.items.isEmpty {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+
+        XCTAssertNil(store.lastError)
+        let item = try XCTUnwrap(store.items.first)
+        XCTAssertEqual(item.kind, .image)
+        let filename = try XCTUnwrap(item.originalImageFilename)
+        XCTAssertNotNil(storage.image(filename: filename))
+        XCTAssertEqual(try storage.loadItems().first?.id, item.id)
+    }
+
     func testUndoableRenameFavoriteDeleteRestoreAndMarkupReplacement() throws {
         let rootURL = temporaryRootURL()
         defer {

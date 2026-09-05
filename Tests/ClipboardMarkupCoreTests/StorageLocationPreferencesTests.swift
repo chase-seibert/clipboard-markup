@@ -3,6 +3,42 @@ import XCTest
 
 @MainActor
 final class StorageLocationPreferencesTests: XCTestCase {
+    func testOnboardingValidatesStorageAndPersistsCompletion() throws {
+        let suiteName = "ClipboardMarkupTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        let rootURL = temporaryHomeURL()
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+            try? FileManager.default.removeItem(at: rootURL)
+        }
+        let preferences = StorageLocationPreferences(userDefaults: defaults)
+        XCTAssertFalse(preferences.hasCompletedOnboarding)
+        preferences.setRootURL(rootURL)
+        try preferences.completeOnboarding()
+
+        XCTAssertTrue(StorageLocationPreferences(userDefaults: defaults).hasCompletedOnboarding)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: rootURL.path).sorted(), ["AGENTS.md", "Media"])
+        XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: rootURL.appendingPathComponent("Media").path).isEmpty)
+    }
+
+    func testOnboardingDoesNotCompleteWhenMediaIsNotADirectory() throws {
+        let suiteName = "ClipboardMarkupTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        let rootURL = temporaryHomeURL()
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+            try? FileManager.default.removeItem(at: rootURL)
+        }
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        try Data("blocked".utf8).write(to: rootURL.appendingPathComponent("Media"))
+        let preferences = StorageLocationPreferences(userDefaults: defaults)
+        preferences.setRootURL(rootURL)
+
+        XCTAssertThrowsError(try preferences.completeOnboarding())
+        XCTAssertFalse(preferences.hasCompletedOnboarding)
+        XCTAssertFalse(StorageLocationPreferences(userDefaults: defaults).hasCompletedOnboarding)
+    }
+
     func testDefaultsToApplicationSupportStorage() {
         let suiteName = "ClipboardMarkupTests.\(UUID().uuidString)"
         guard let userDefaults = UserDefaults(suiteName: suiteName) else {

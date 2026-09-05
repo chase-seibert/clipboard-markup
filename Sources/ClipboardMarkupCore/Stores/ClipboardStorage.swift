@@ -112,6 +112,16 @@ struct ClipboardStorage {
         try ensureDirectories()
     }
 
+    /// Check both destinations: text metadata can succeed while image writes fail.
+    func validateWritable() throws {
+        try ensureDirectories()
+        for directory in [rootURL, mediaURL] {
+            let probeURL = directory.appendingPathComponent(".write-check-\(UUID().uuidString)")
+            defer { try? FileManager.default.removeItem(at: probeURL) }
+            try Data("Clipboard Markup storage check".utf8).write(to: probeURL, options: .atomic)
+        }
+    }
+
     func clearHistory() throws {
         try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
 
