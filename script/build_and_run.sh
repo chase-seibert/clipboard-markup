@@ -28,7 +28,13 @@ LOGIN_LAUNCHER_CONTENTS="$LOGIN_LAUNCHER_BUNDLE/Contents"
 LOGIN_LAUNCHER_MACOS="$LOGIN_LAUNCHER_CONTENTS/MacOS"
 LOGIN_LAUNCHER_BINARY="$LOGIN_LAUNCHER_MACOS/$LOGIN_LAUNCHER_NAME"
 LOGIN_LAUNCHER_INFO_PLIST="$LOGIN_LAUNCHER_CONTENTS/Info.plist"
-SIGN_IDENTITY="${CODE_SIGN_IDENTITY:--}"
+TEAM_ID="${DEVELOPMENT_TEAM:-96NAC4VTEN}"
+SIGNING_MODE="${SIGNING_MODE:-team}"
+SIGN_IDENTITY="${CODE_SIGN_IDENTITY:-}"
+
+if [[ "$SIGNING_MODE" == "team" && -z "$SIGN_IDENTITY" ]]; then
+  SIGN_IDENTITY="$(/usr/bin/security find-identity -v -p codesigning 2>/dev/null | awk -F '"' '/Apple Development/ { print $2; exit }')"
+fi
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
@@ -113,8 +119,34 @@ cat >"$LOGIN_LAUNCHER_INFO_PLIST" <<PLIST
 </plist>
 PLIST
 
-/usr/bin/codesign --force --sign "$SIGN_IDENTITY" "$LOGIN_LAUNCHER_BUNDLE" >/dev/null
-/usr/bin/codesign --force --sign "$SIGN_IDENTITY" "$APP_BUNDLE" >/dev/null
+case "$SIGNING_MODE" in
+  team)
+    if [[ -z "$SIGN_IDENTITY" ]]; then
+      echo "No Apple Development signing identity found for team $TEAM_ID." >&2
+      exit 1
+    fi
+    /usr/bin/codesign --force --sign "$SIGN_IDENTITY" "$LOGIN_LAUNCHER_BUNDLE" >/dev/null
+    /usr/bin/codesign --force --sign "$SIGN_IDENTITY" "$APP_BUNDLE" >/dev/null
+    actual_team="$(/usr/bin/codesign -dvvv "$APP_BUNDLE" 2>&1 | awk -F= '/^TeamIdentifier=/{print $2}')"
+    if [[ "$actual_team" != "$TEAM_ID" ]]; then
+      echo "Expected TeamIdentifier=$TEAM_ID, got ${actual_team:-none}." >&2
+      exit 1
+    fi
+    /usr/bin/codesign --verify --deep --strict "$APP_BUNDLE" >/dev/null
+    ;;
+  adhoc)
+    /usr/bin/codesign --force --sign - "$LOGIN_LAUNCHER_BUNDLE" >/dev/null
+    /usr/bin/codesign --force --sign - "$APP_BUNDLE" >/dev/null
+    /usr/bin/codesign --verify --deep --strict "$APP_BUNDLE" >/dev/null
+    ;;
+  unsigned)
+    echo "Skipping code signing (SIGNING_MODE=unsigned)."
+    ;;
+  *)
+    echo "Unsupported SIGNING_MODE=$SIGNING_MODE; use team, adhoc, or unsigned." >&2
+    exit 2
+    ;;
+esac
 
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"

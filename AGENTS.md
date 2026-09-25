@@ -28,6 +28,12 @@ Prefer Makefile targets for common workflows:
 - `make test`: run the test suite.
 - `make clean`: clean SwiftPM and generated app bundle artifacts.
 
+Signing defaults to the local team-backed Apple Development identity. Public
+contributors without a team can use `SIGNING_MODE=unsigned make run` for a
+local unsigned launch or `SIGNING_MODE=adhoc make run` for an ad-hoc test
+signature. Team builds can override `DEVELOPMENT_TEAM` and
+`CODE_SIGN_IDENTITY` without changing the repository.
+
 Expose new recurring commands as Makefile targets before documenting ad hoc shell commands.
 
 ## Documentation
