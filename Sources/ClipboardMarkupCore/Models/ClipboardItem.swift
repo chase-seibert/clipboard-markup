@@ -91,9 +91,7 @@ public struct ClipboardItem: Identifiable, Codable, Equatable, Hashable {
     public var automaticTitle: String {
         switch kind {
         case .text:
-            let text = plainText?
-                .replacingOccurrences(of: "\n", with: " ")
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let text = textPreview(maxCharacters: 80).text.replacingOccurrences(of: "\n", with: " ")
             return text.isEmpty ? "Text" : Self.limitedTitle(text)
         case .image:
             if let transcriptTitle = Self.title(fromTranscript: imageTranscript) {
@@ -125,14 +123,35 @@ public struct ClipboardItem: Identifiable, Codable, Equatable, Hashable {
         .joined(separator: " ")
     }
 
+    /// Returns a bounded prefix for UI display without copying or normalizing the full clip.
+    public func textPreview(maxCharacters: Int) -> (text: String, isTruncated: Bool) {
+        guard let plainText else {
+            return ("", false)
+        }
+
+        let limit = max(0, maxCharacters)
+        let prefix = plainText.prefix(limit + 1)
+        let isTruncated = prefix.count > limit
+        let text = String(prefix.prefix(limit)).trimmingCharacters(in: .whitespacesAndNewlines)
+        return (text, isTruncated)
+    }
+
     public func matchesSearch(_ query: String) -> Bool {
         let tokens = Self.searchTokens(from: query)
         guard !tokens.isEmpty else {
             return true
         }
 
-        let haystack = Self.normalizedSearchText(searchableText)
-        return tokens.allSatisfy { haystack.contains($0) }
+        let searchableFields = [title, plainText, imageTranscript].compactMap { $0 }
+        return tokens.allSatisfy { token in
+            searchableFields.contains { field in
+                field.range(
+                    of: token,
+                    options: [.caseInsensitive, .diacriticInsensitive],
+                    locale: .current
+                ) != nil
+            }
+        }
     }
 
     public func shouldPermanentlyDelete(asOf date: Date) -> Bool {

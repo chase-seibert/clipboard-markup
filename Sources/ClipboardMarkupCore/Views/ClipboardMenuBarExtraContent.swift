@@ -349,7 +349,7 @@ private struct RecentClipPreview: View {
     }
 
     private var textPreview: String {
-        let trimmedText = (item.plainText ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedText = item.textPreview(maxCharacters: 240).text
         return trimmedText.isEmpty ? "Text" : trimmedText
     }
 }

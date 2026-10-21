@@ -489,9 +489,24 @@ private struct TextDetailView: View {
     @ObservedObject var store: ClipboardStore
     let item: ClipboardItem
 
+    private let displayCharacterLimit = 12_000
+
+    private var preview: (text: String, isTruncated: Bool) {
+        item.textPreview(maxCharacters: displayCharacterLimit)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(item.plainText ?? "")
+            if preview.isTruncated {
+                Label(
+                    "Showing the first 12,000 characters. Copy or export the clip to access the full text.",
+                    systemImage: "info.circle"
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            }
+
+            Text(preview.text)
                 .textSelection(.enabled)
                 .appFont(size: 13)
                 .lineSpacing(3)

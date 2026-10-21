@@ -685,7 +685,10 @@ private struct ClipboardRow: View {
     private var rowPreview: some View {
         ZStack(alignment: .bottomTrailing) {
             if item.kind == .text {
-                TextSnippetPreviewTile(text: item.plainText ?? "", maximumHeight: stackedThumbnailHeight)
+                TextSnippetPreviewTile(
+                    text: item.textPreview(maxCharacters: 1_600).text,
+                    maximumHeight: stackedThumbnailHeight
+                )
             } else if item.kind == .image,
                let image = store.image(for: item, variant: .preferred) {
                 ImageHybridThumbnail(image: image)
